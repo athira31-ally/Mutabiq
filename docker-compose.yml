@@ -1,0 +1,15 @@
+services:
+  trakheesi:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      APP_ENV: local
+      YOLO_ONNX_PATH: models/yolov8n_watermark.onnx
+      DETECT_CONF_THRESHOLD: "0.42"
+      PEXELS_API_KEY: ${PEXELS_API_KEY:-}
+      AZURE_VISION_ENDPOINT: ${AZURE_VISION_ENDPOINT:-}
+      AZURE_VISION_KEY: ${AZURE_VISION_KEY:-}
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data

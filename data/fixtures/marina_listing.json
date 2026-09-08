@@ -1,0 +1,15 @@
+{
+  "listing_id": "dxb-marina-2br-8841",
+  "permit_number": "7113984521",
+  "permit_class": "secondary",
+  "channel": "portal",
+  "broker_name": "Horizon Gate Real Estate",
+  "developer_name": "Emaar Properties",
+  "community": "Dubai Marina",
+  "permit_issued": "2026-01-12",
+  "permit_expires": "2027-01-11",
+  "asking_price_aed": 2150000,
+  "contact_phone": "+971501234567",
+  "ocr_from_live_creative": "AED 2,150,000  +971 50 123 4567  Permit  7113984521  Horizon Gate Real Estate",
+  "design_note": "Original exact-string OCR==permit matcher failed on this creative because the blob also contained price and phone."
+}

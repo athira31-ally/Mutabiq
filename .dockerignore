@@ -1,0 +1,11 @@
+.git
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+data/pexels
+data/synthetic
+data/yolo
+runs
+*.pt
+.env
