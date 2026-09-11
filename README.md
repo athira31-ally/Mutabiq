@@ -1,6 +1,6 @@
 # 01 · Listing Image & Trakheesi Compliance Detector
 
-**Status:** 🟡 MVP built — full pipeline implemented and tested against synthetic data. The Azure deployment path is built and documented but hasn't been pointed at a live subscription yet, so there is no public URL yet.
+**Status:** 🟡 MVP built — full pipeline implemented and tested. The Azure deployment path is built and documented but hasn't been pointed at a live subscription yet, so there is no public URL yet.
 
 Before a Dubai property listing goes live, an agency or portal needs to know whether it will trip a **Trakheesi** (Dubai Land Department) or **Madhmoun** (Abu Dhabi) advertising violation — a missing or illegible permit number, a permit number that doesn't match the ad, an unauthorized broker watermark on the photos, or a duplicate/stock photo reused across listings. DLD fines for Trakheesi violations start at **AED 50,000**, with listing removal or licence suspension on repeat offences, and this maps to a real, funded product category — several UAE proptech vendors already sell "Trakheesi validation" as a paid add-on.
 
@@ -38,7 +38,8 @@ listing bundle (images[], ad_text, claimed_permit_number, listing/agent id)
 | Component | File | Notes |
 |---|---|---|
 | Permit OCR + validation (Azure Vision / Tesseract / Mock backends) | `src/ocr_permit.py` | Backend auto-picked at runtime: Azure Vision when `AZURE_VISION_KEY` is set, else local Tesseract |
-| Synthetic watermark training-data generator | `src/synthetic_watermark_data.py` | Procedurally overlays brokerage-style logos onto generated property photos — no public dataset exists for this, see `ARCHITECTURE.md` |
+| Real base-photo fetcher (Pexels API) | `src/fetch_stock_photos.py` | Downloads free-licensed property/interior photos to use as training backgrounds — see "Training data" below |
+| Synthetic watermark-overlay generator | `src/synthetic_watermark_data.py` | Composites a synthetic brokerage wordmark onto a base photo, in YOLO label format; base photo can be procedural or a real downloaded one |
 | YOLOv8n watermark detector, training + ONNX export | `src/train_watermark_yolo.py` | Trained model + metrics committed under `models/watermark_detector/` — see Results below |
 | ONNX Runtime inference (no torch dependency at serve time) | `src/watermark_detector.py` | Keeps the Docker image small — see `requirements-serve.txt` |
 | Duplicate-photo detector (perceptual hashing) | `src/dup_hash.py` | SQLite-backed index (`data/dup_index.sqlite`) |
@@ -53,11 +54,17 @@ listing bundle (images[], ad_text, claimed_permit_number, listing/agent id)
 
 Not deployed yet. The full deploy path — Dockerfile, `scripts/azure_deploy.sh`, and a step-by-step guide — is ready to run against an Azure subscription; see [`DEPLOY_AZURE.md`](DEPLOY_AZURE.md) for the one-command version and the cost breakdown (roughly $5/month if left running, ~$0 if torn down between demos).
 
+## Training data
+
+No public dataset of "unauthorized broker watermark on a UAE listing photo" exists, so the training set is bootstrapped: a synthetic brokerage wordmark (never a real brand's actual logo, to sidestep trademark questions) is composited onto a base photo at randomized position/scale/opacity.
+
+The base photos underneath are **real property/interior photographs**, fetched via `src/fetch_stock_photos.py` from the [Pexels API](https://www.pexels.com/api/) (240 photos in `data/raw/stock_photos/`) — free, no attribution required under the Pexels License, and used only as a training background, never republished as-is. `synthetic_watermark_data.py` also supports a procedural fallback (drawn gradient rooms, no external dependency) for offline iteration, which is what an earlier internal run used.
+
+The committed model was trained on **250 training images / 40 validation images** built this way (`data/synthetic/watermark_yolo/`).
+
 ## Results
 
-The watermark detector was fine-tuned (YOLOv8n → ONNX) on synthetic data — procedurally generated property photos with randomized brokerage-logo overlays, 250 training images and 40 held-out validation images (`src/synthetic_watermark_data.py`, since no public watermark-violation dataset exists).
-
-Final validation metrics after 60 epochs at 416px (`models/watermark_detector/results.csv`):
+Final validation metrics after 60 epochs at 416px, on real-photo backgrounds (`models/watermark_detector/results.csv`):
 
 | Metric | Value |
 |---|---|
@@ -66,7 +73,7 @@ Final validation metrics after 60 epochs at 416px (`models/watermark_detector/re
 | mAP50 | 0.908 |
 | mAP50-95 | 0.668 |
 
-Training took ~35 minutes on CPU (no GPU in this build environment).
+Training took ~35 minutes on CPU (no GPU in this build environment). An earlier run on purely procedural (non-photographic) backgrounds scored higher on paper (mAP50 0.995) — real backgrounds are harder (varied lighting, clutter, furniture), so the lower number here is the more meaningful one for real-world performance.
 
 ### Illustrative example
 
@@ -90,7 +97,7 @@ The rule engine treats a clean mismatch as **review** rather than an automatic h
 
 ## Known limitations
 
-- The watermark detector is trained entirely on synthetic data. It generalizes to "text/logo-shaped region on a photo," which is the right shape of signal but will need real listing photos and real competitor logos to sharpen precision before it's production-ready.
+- The overlaid watermark is still a generated wordmark, not a real competitor's logo (deliberately, to avoid trademark issues) — it generalizes to "text/logo-shaped region on a photo," which is the right shape of signal but will need real broker logos to sharpen precision before it's production-ready.
 - `PERMIT_REGEX` in `ocr_permit.py` is a provisional format inferred from public Trakheesi-checker tools, not an official DLD spec — see `ARCHITECTURE.md`, "Open risks."
 - No live Trakheesi/Madhmoun permit-lookup API is confirmed to exist publicly; validation here is format + cross-check only, not live DLD verification.
 - Not yet deployed to a live Azure endpoint — the deploy path is built and documented but unexercised against a real subscription.
@@ -101,16 +108,21 @@ The rule engine treats a clean mismatch as **review** rather than an automatic h
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
-# 1. Generate synthetic training data (250 train / 40 val, matching the committed model)
-python -m src.synthetic_watermark_data --out data/synthetic/watermark_yolo --n-train 250 --n-val 40
+# 1. Fetch real base photos (optional but recommended — needs a free Pexels API key)
+export PEXELS_API_KEY=your_key_here
+python -m src.fetch_stock_photos --out data/raw/stock_photos --per-query 30
 
-# 2. Train + export the watermark detector (~35 min on CPU)
+# 2. Generate the training set (250 train / 40 val, matching the committed model)
+python -m src.synthetic_watermark_data --out data/synthetic/watermark_yolo \
+    --n-train 250 --n-val 40 --real-photos-dir data/raw/stock_photos
+
+# 3. Train + export the watermark detector (~35 min on CPU)
 python -m src.train_watermark_yolo --data data/synthetic/watermark_yolo/dataset.yaml --epochs 60 --imgsz 416
 
-# 3. Run tests
+# 4. Run tests
 pytest -v
 
-# 4. Serve
+# 5. Serve
 uvicorn src.api:app --reload
 ```
 
