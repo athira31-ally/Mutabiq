@@ -52,11 +52,11 @@ listing bundle (images[], ad_text, claimed_permit_number, listing/agent id)
 
 ## Live demo
 
-Not deployed yet. The full deploy path — Dockerfile, `scripts/azure_deploy.sh`, and a step-by-step guide — is ready to run against an Azure subscription; see [`DEPLOY_AZURE.md`](DEPLOY_AZURE.md) for the one-command version and the cost breakdown (roughly $5/month if left running, ~$0 if torn down between demos).
+The full deploy path — Dockerfile, `scripts/azure_deploy.sh`, and a step-by-step guide — is ready to run against an Azure subscription; see [`DEPLOY_AZURE.md`](DEPLOY_AZURE.md) for the one-command version and the cost breakdown (roughly $5/month if left running, ~$0 if torn down between demos).
 
 ## Training data
 
-No public dataset of "unauthorized broker watermark on a UAE listing photo" exists, so the training set is bootstrapped: a synthetic brokerage wordmark (never a real brand's actual logo, to sidestep trademark questions) is composited onto a base photo at randomized position/scale/opacity.
+No public dataset of "unauthorized broker watermark on a UAE listing photo" exists, so the training set is bootstrapped : a synthetic brokerage wordmark (never a real brand's actual logo, to sidestep trademark questions) is composited onto a base photo at randomized position/scale/opacity.
 
 The base photos underneath are **real property/interior photographs**, fetched via `src/fetch_stock_photos.py` from the [Pexels API](https://www.pexels.com/api/) (240 photos in `data/raw/stock_photos/`) — free, no attribution required under the Pexels License, and used only as a training background, never republished as-is. `synthetic_watermark_data.py` also supports a procedural fallback (drawn gradient rooms, no external dependency) for offline iteration, which is what an earlier internal run used.
 
