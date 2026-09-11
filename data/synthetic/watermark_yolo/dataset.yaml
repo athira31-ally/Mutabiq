@@ -1,0 +1,5 @@
+path: /Users/athirakk/Desktop/Trakheesi-project/data/synthetic/watermark_yolo
+train: images/train
+val: images/val
+names:
+  0: watermark

@@ -1,0 +1,18 @@
+# Runtime dependencies only — what the FastAPI service actually needs to
+# serve requests. Deliberately excludes ultralytics/torch/onnx (training-only,
+# see requirements.txt) so the Docker image stays small and builds fast.
+
+numpy
+Pillow
+onnxruntime
+imagehash
+
+# OCR — both backends installed; get_backend("auto") picks Azure Vision when
+# AZURE_VISION_KEY is set in the environment, otherwise falls back to Tesseract.
+pytesseract
+azure-ai-vision-imageanalysis
+
+# API
+fastapi
+uvicorn[standard]
+python-multipart

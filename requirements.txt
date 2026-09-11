@@ -1,0 +1,27 @@
+# Full dev/training environment. For deploying just the API (Docker/Azure),
+# see requirements-serve.txt instead — it's the runtime-only subset of this.
+
+# Core pipeline
+numpy
+Pillow
+onnxruntime
+imagehash
+
+# OCR
+pytesseract          # local/offline backend (needs the `tesseract` binary on PATH)
+azure-ai-vision-imageanalysis   # production backend — see DEPLOY_AZURE.md
+
+# API
+fastapi
+uvicorn[standard]
+python-multipart      # required by FastAPI for file uploads
+
+# Training only (not needed to serve the trained model)
+ultralytics
+torch
+onnx
+requests             # fetch_stock_photos.py — pulls real base photos from the Pexels API
+
+# Tests
+pytest
+httpx                  # FastAPI TestClient

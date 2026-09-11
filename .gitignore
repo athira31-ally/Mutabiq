@@ -1,0 +1,17 @@
+# Virtual environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# OS
+.DS_Store
+
+# Unrelated nested repo (MS Learn AI Studio tutorial clone)
+mslearn-ai-studio/
+
+# Base pretrained checkpoint (auto-downloaded by ultralytics, not project-specific)
+yolov8n.pt
