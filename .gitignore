@@ -15,3 +15,6 @@ mslearn-ai-studio/
 
 # Base pretrained checkpoint (auto-downloaded by ultralytics, not project-specific)
 yolov8n.pt
+
+# local scratch
+_staging/

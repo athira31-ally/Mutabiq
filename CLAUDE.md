@@ -12,7 +12,7 @@ duplicate/stock photo detection (perceptual hashing).
   keep these two in sync for overlapping runtime deps only
 
 ## Common commands
-- Run tests: `pytest -v` (should be 19/19 passing)
+- Run tests: `pytest -v` (should be 26 passing)
 - Run API locally: `uvicorn src.api:app --reload`
 - Deploy: see `DEPLOY_AZURE.md`
 

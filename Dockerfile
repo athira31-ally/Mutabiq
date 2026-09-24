@@ -27,9 +27,10 @@ WORKDIR /app
 COPY requirements-serve.txt .
 RUN pip install --no-cache-dir -r requirements-serve.txt
 
-# Application code + the trained model.
+# Application code, the trained model, and the web demo (page + sample listings).
 COPY src/ ./src
-COPY models/ ./models
+COPY models/watermark_yolov8n.onnx ./models/watermark_yolov8n.onnx
+COPY demo/ ./demo
 
 # Writable scratch dir for the duplicate-photo SQLite index. On Azure
 # Container Apps' Consumption plan the container filesystem is ephemeral

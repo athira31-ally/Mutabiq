@@ -13,6 +13,7 @@ index is the scaling path once the corpus grows past that.
 from __future__ import annotations
 
 import sqlite3
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -45,7 +46,10 @@ class DuplicatePhotoIndex:
     """
 
     def __init__(self, db_path: str = ":memory:"):
-        self.conn = sqlite3.connect(db_path)
+        # FastAPI serves requests from several threads (event loop + threadpool), so the connection must be
+        # usable across threads; the lock keeps concurrent reads/writes from interleaving.
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self.lock = threading.Lock()
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS images (
@@ -60,11 +64,12 @@ class DuplicatePhotoIndex:
 
     def add(self, image_id: str, image_path: str, listing_id: str, agent_id: str) -> None:
         phash = str(compute_hash(image_path))
-        self.conn.execute(
-            "INSERT OR REPLACE INTO images (image_id, listing_id, agent_id, phash) VALUES (?, ?, ?, ?)",
-            (image_id, listing_id, agent_id, phash),
-        )
-        self.conn.commit()
+        with self.lock:
+            self.conn.execute(
+                "INSERT OR REPLACE INTO images (image_id, listing_id, agent_id, phash) VALUES (?, ?, ?, ?)",
+                (image_id, listing_id, agent_id, phash),
+            )
+            self.conn.commit()
 
     def find_matches(
         self,
@@ -74,9 +79,9 @@ class DuplicatePhotoIndex:
     ) -> list[DuplicateMatch]:
         query_hash = compute_hash(image_path)
         matches = []
-        for image_id, listing_id, agent_id, phash_str in self.conn.execute(
-            "SELECT image_id, listing_id, agent_id, phash FROM images"
-        ):
+        with self.lock:
+            rows = self.conn.execute("SELECT image_id, listing_id, agent_id, phash FROM images").fetchall()
+        for image_id, listing_id, agent_id, phash_str in rows:
             if exclude_listing_id and listing_id == exclude_listing_id:
                 continue
             distance = query_hash - imagehash.hex_to_hash(phash_str)

@@ -64,3 +64,25 @@ def test_excludes_same_listing():
         idx.add("img0", str(p), listing_id="listing-1", agent_id="agent-1")
         matches = idx.find_matches(str(p), exclude_listing_id="listing-1")
         assert matches == []
+
+
+def test_index_is_safe_across_threads(tmp_path):
+    """FastAPI runs endpoints on several threads; the index must not be tied to the creating thread."""
+    import threading
+    from PIL import Image
+    from src.dup_hash import DuplicatePhotoIndex
+    img = tmp_path / "p.jpg"
+    Image.new("RGB", (64, 64), (120, 80, 40)).save(img)
+    index = DuplicatePhotoIndex(":memory:")
+    errors = []
+
+    def work(i):
+        try:
+            index.add(f"img{i}", str(img), f"L{i}", "A")
+            index.find_matches(str(img))
+        except Exception as e:  # pragma: no cover - the assertion below reports it
+            errors.append(e)
+    threads = [threading.Thread(target=work, args=(i,)) for i in range(8)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert not errors and len(index.find_matches(str(img))) == 8

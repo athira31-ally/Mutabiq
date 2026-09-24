@@ -95,7 +95,18 @@ class TesseractOCR(OCRBackend):
         from PIL import Image
 
         with Image.open(image_path) as img:
-            return pytesseract.image_to_string(img)
+            img = img.convert("RGB")
+            text = pytesseract.image_to_string(img)
+            if PERMIT_REGEX.search(text):
+                return text
+            # Busy photos can hide a permit banner from Tesseract's page layout analysis. Permit
+            # badges usually sit in a top or bottom band, so read those bands on their own, enlarged.
+            w, h = img.size
+            for top, bottom in ((int(h * 0.75), h), (0, int(h * 0.25))):
+                band = img.crop((0, top, w, bottom))
+                band = band.resize((band.width * 2, band.height * 2))
+                text += "\n" + pytesseract.image_to_string(band, config="--psm 6")
+            return text
 
 
 class AzureVisionOCR(OCRBackend):

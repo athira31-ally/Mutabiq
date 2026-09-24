@@ -1,6 +1,6 @@
 # 01 · Listing Image & Trakheesi Compliance Detector
 
-**Status:** 🟡 MVP built — full pipeline implemented and tested. The Azure deployment path is built and documented but hasn't been pointed at a live subscription yet, so there is no public URL yet.
+**Status:** 🟢 **Live on Azure Container Apps** — [try the demo](https://trakheesi-api.victoriousriver-467d20dd.uaenorth.azurecontainerapps.io) (click a sample listing or upload your own; the first load after idle takes ~20 s while it scales up from zero).
 
 Before a Dubai property listing goes live, an agency or portal needs to know whether it will trip a **Trakheesi** (Dubai Land Department) or **Madhmoun** (Abu Dhabi) advertising violation — a missing or illegible permit number, a permit number that doesn't match the ad, an unauthorized broker watermark on the photos, or a duplicate/stock photo reused across listings. DLD fines for Trakheesi violations start at **AED 50,000**, with listing removal or licence suspension on repeat offences, and this maps to a real, funded product category — several UAE proptech vendors already sell "Trakheesi validation" as a paid add-on.
 
@@ -45,14 +45,36 @@ listing bundle (images[], ad_text, claimed_permit_number, listing/agent id)
 | Duplicate-photo detector (perceptual hashing) | `src/dup_hash.py` | SQLite-backed index (`data/dup_index.sqlite`) |
 | Rule engine (combines checks into a compliance report) | `src/rule_engine.py` | Rule table in `ARCHITECTURE.md` §3.4 |
 | Pipeline orchestration | `src/pipeline.py` | Wires the three checks + rule engine together |
-| FastAPI service | `src/api.py` | `/health`, `/check-listing` |
+| FastAPI service + web demo | `src/api.py`, `demo/` | `/` demo page, `/check-listing`, `/check-sample/{id}`, `/health` |
 | Dockerfile + Azure Container Apps deploy script | `Dockerfile`, `scripts/azure_deploy.sh` | Serve-only image (no training deps) — see [`DEPLOY_AZURE.md`](DEPLOY_AZURE.md) |
 
-**21 test functions** across 6 modules (`tests/`) — run with `pytest -v`.
+**26 tests** across 7 modules (`tests/`) — run with `pytest -v`.
 
 ## Live demo
 
-The full deploy path — Dockerfile, `scripts/azure_deploy.sh`, and a step-by-step guide — is ready to run against an Azure subscription; see [`DEPLOY_AZURE.md`](DEPLOY_AZURE.md) for the one-command version and the cost breakdown (roughly $5/month if left running, ~$0 if torn down between demos).
+**https://trakheesi-api.victoriousriver-467d20dd.uaenorth.azurecontainerapps.io**
+
+The demo page runs five real-photo sample listings through the full pipeline with one click — one per outcome:
+
+| Sample | What's wrong | Verdict |
+|---|---|---|
+| Compliant listing | nothing — permit on the photo matches the ad | ✅ pass |
+| Unauthorised watermark | another brokerage's wordmark on the photo | 🟡 review · `WATERMARK_DETECTED` |
+| Permit doesn't match the ad | photo shows 1239982634, ad claims 7169578165 | 🟡 review · `PERMIT_MISMATCH` |
+| No permit on the listing | no permit number anywhere | 🔴 fail · `PERMIT_MISSING` |
+| Photo reused by another agent | sample 1's photo, re-cropped, posted by a different agent | 🟡 review · `DUPLICATE_PHOTO` |
+
+Each verdict is pinned by `tests/test_demo_samples.py`. Deployment: GitHub Actions builds the serve-only image to `ghcr.io`, and `scripts/deploy_live.sh` runs it on Azure Container Apps (scale-to-zero, ~$0 when idle). You can also upload your own listing photos, or call `POST /check-listing` directly (docs at `/docs`).
+
+### What going live taught me
+
+Putting the model in front of new images surfaced three real issues, now fixed or documented:
+
+1. **Train/serve skew from a font path.** The synthetic-watermark generator loads a Linux font (`DejaVuSans-Bold.ttf`). The training set was generated on macOS, where that path doesn't exist, so every training logo silently fell back to Pillow's small default font. The model therefore learned *small text wordmarks*: on fresh composites it detects **40/48** default-font marks but only **10/48** large bold ones. The demo uses training-style marks; **next step:** bundle a few open-licence fonts in the repo and retrain with varied fonts, sizes and styles.
+2. **Busy photos hid the permit from OCR.** Tesseract's page-layout step missed a clearly printed permit banner on a cluttered living-room photo. Fix: if the full-image pass finds no permit, re-read the top and bottom bands (where permit badges sit) enlarged — `src/ocr_permit.py`.
+3. **A threading bug in the duplicate index.** The SQLite connection was tied to the thread that created it, but FastAPI serves requests from several threads — the first request worked and later ones would crash. Fix: cross-thread connection + lock, with a concurrency test.
+
+The detector's recall-first threshold (0.10) is unchanged by design: a false alarm only means "review". The only 5 clean images in the 40-image validation set include 2 false positives, so a larger negative set is also on the list.
 
 ## Training data
 
@@ -137,4 +159,4 @@ For a real public HTTPS deployment on Azure Container Apps with Azure AI Vision 
 
 ## Techniques used
 
-Object detection (YOLOv8 fine-tuning), ONNX export and ONNX Runtime inference, synthetic training-data generation for a class with no public dataset, OCR (Azure AI Vision Read API + Tesseract, pluggable backends), fuzzy string matching for noisy-OCR cross-checks, perceptual hashing (pHash) for near-duplicate image detection, rule-based decision engines, FastAPI service design, pytest-driven development, Docker containerization, Azure Container Apps deployment (ACR Tasks cloud build, scale-to-zero, secrets management).
+Object detection (YOLOv8 fine-tuning), ONNX export and ONNX Runtime inference, synthetic training-data generation for a class with no public dataset, OCR (Azure AI Vision Read API + Tesseract, pluggable backends), fuzzy string matching for noisy-OCR cross-checks, perceptual hashing (pHash) for near-duplicate image detection, rule-based decision engines, FastAPI service design, pytest-driven development, Docker containerization, Azure Container Apps deployment (GitHub Actions image build to ghcr.io, scale-to-zero), a live web demo.

@@ -1,0 +1,47 @@
+[
+  {
+    "id": "a_compliant",
+    "title": "Compliant listing",
+    "claimed": "7169578165",
+    "listing_id": "DEMO-A",
+    "agent_id": "AGENT-101",
+    "expect": "pass",
+    "image": "a_compliant.jpg"
+  },
+  {
+    "id": "b_watermark",
+    "title": "Unauthorised watermark",
+    "claimed": "6045128830",
+    "listing_id": "DEMO-B",
+    "agent_id": "AGENT-102",
+    "expect": "review",
+    "image": "b_watermark.jpg"
+  },
+  {
+    "id": "c_mismatch",
+    "title": "Permit doesn't match the ad",
+    "claimed": "7169578165",
+    "listing_id": "DEMO-C",
+    "agent_id": "AGENT-103",
+    "expect": "review",
+    "image": "c_mismatch.jpg"
+  },
+  {
+    "id": "d_no_permit",
+    "title": "No permit on the listing",
+    "claimed": "5501234567",
+    "listing_id": "DEMO-D",
+    "agent_id": "AGENT-104",
+    "expect": "fail",
+    "image": "d_no_permit.jpg"
+  },
+  {
+    "id": "e_reused",
+    "title": "Photo reused by another agent",
+    "claimed": "7169578165",
+    "listing_id": "DEMO-E",
+    "agent_id": "AGENT-205",
+    "expect": "review",
+    "image": "e_reused.jpg"
+  }
+]
