@@ -6,11 +6,14 @@ numpy
 Pillow
 onnxruntime
 imagehash
+zxing-cpp            # permit QR codes (self-contained wheels, no system library)
+pypdfium2            # listing pages saved as PDF: text, embedded photos, page renders
 
 # OCR — both backends installed; get_backend("auto") picks Azure Vision when
 # AZURE_VISION_KEY is set in the environment, otherwise falls back to Tesseract.
 pytesseract
 azure-ai-vision-imageanalysis
+azure-ai-documentintelligence   # listing-page PDFs (text + QR codes) when AZURE_DOCINTEL_* is set
 
 # API
 fastapi

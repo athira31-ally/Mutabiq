@@ -71,11 +71,13 @@ listing bundle (images[], ad_text, claimed_permit_number, property_details)
 
 ### 3.4 Rule engine
 
-Combines the three checks into one report:
+Combines the checks into one report:
 
 | Condition | Severity |
 |---|---|
-| No permit number found | Hard fail |
+| No printed permit number and no Trakheesi permit QR code | Hard fail |
+| Permit QR only (portal style), no printed number | OK — if the QR link carries a permit number, it must match the ad (else Review) |
+| Permit QR belongs to a different listing than the pasted link | Review (`PERMIT_QR_OTHER_LISTING`) |
 | Permit number present but malformed | Hard fail |
 | Permit number present, valid format, but mismatches ad text | Review |
 | Watermark detected | Review |

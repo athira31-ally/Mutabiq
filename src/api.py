@@ -9,6 +9,7 @@ ARCHITECTURE.md §4.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
@@ -23,6 +24,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .dup_hash import DuplicatePhotoIndex
+from .listing_link import fetch_listing, parse_listing_url
+from .pdf_listing import extract_pdf, regulatory_facts
 from .pipeline import CompliancePipeline, ListingBundle
 
 MODEL_PATH = os.environ.get("WATERMARK_MODEL_PATH", "models/watermark_yolov8n.onnx")
@@ -31,6 +34,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEMO_DIR = ROOT / "demo"                      # web demo page + sample listings (scripts/make_demo_samples.py)
 SAMPLES_DIR = DEMO_DIR / "samples"
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024            # per image, keeps the public demo from being abused
+MAX_PDF_BYTES = 20 * 1024 * 1024
 
 app = FastAPI(
     title="Trakheesi Compliance Detector",
@@ -156,3 +160,82 @@ async def check_listing(
         report = pipeline.check_listing(bundle)
 
     return report.to_dict()
+
+@app.post("/check-page")
+async def check_page(
+    listing_url: str | None = Form(None),
+    claimed_permit_number: str | None = Form(None),
+    page_pdf: UploadFile | None = File(None),
+):
+    """Check a whole listing from its Bayut / Property Finder link and/or the page saved as a PDF.
+
+    - PDF uploaded: read it (Azure Document Intelligence if configured, else local) - photos, text, QR.
+    - Only a link: one polite fetch of the page. If the portal blocks automated requests, the answer is
+      status "needs_pdf" with the reason, and the page asks for the PDF instead.
+    - A link is also used on its own: its listing ID must match the listing ID inside the permit QR.
+    """
+    listing_url = (listing_url or "").strip() or None
+    has_pdf = page_pdf is not None and bool(page_pdf.filename)
+    if not listing_url and not has_pdf:
+        raise HTTPException(status_code=422, detail="Paste a listing link or upload the page as a PDF.")
+    link = None
+    if listing_url:
+        try:
+            link = parse_listing_url(listing_url)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+    t0 = time.perf_counter()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        if has_pdf:
+            data = await page_pdf.read()
+            if len(data) > MAX_PDF_BYTES:
+                raise HTTPException(status_code=413, detail="The PDF must be under 20 MB.")
+            if not data.startswith(b"%PDF"):
+                raise HTTPException(status_code=422, detail="That file isn't a PDF.")
+            pdf_path = Path(tmpdir) / "listing.pdf"
+            pdf_path.write_bytes(data)
+            try:
+                page = extract_pdf(pdf_path, Path(tmpdir) / "pdf")
+            except Exception:
+                raise HTTPException(status_code=422, detail="Couldn't read that PDF.")
+            source, reader = "pdf", page.reader
+            text, qrs, photos = page.text, page.qrs, page.photo_paths
+            fallback_key = "PDF-" + hashlib.sha1(data).hexdigest()[:12]
+        else:
+            fetched = fetch_listing(listing_url, Path(tmpdir) / "web")
+            if not fetched.ok:
+                return {
+                    "status": "needs_pdf",
+                    "message": fetched.reason + " Save the listing page as a PDF (Cmd+P / Ctrl+P, then "
+                               "'Save as PDF') and upload it with the link.",
+                    "listing": {"portal": link.portal, "listing_ref": link.listing_ref, "url": link.url},
+                }
+            source, reader = "link", "fetched page"
+            text, qrs, photos = fetched.page_text, [], fetched.image_paths
+            fallback_key = "URL-" + hashlib.sha1(listing_url.encode()).hexdigest()[:12]
+
+        # A stable ID per listing, so checking the same listing twice isn't reported as a reused photo.
+        qr_ref = next((q.listing_ref for q in qrs if q.is_permit and q.listing_ref), None)
+        if link and link.listing_ref:
+            listing_key = f"{link.portal}-{link.listing_ref}"
+        elif qr_ref:
+            listing_key = f"QR-{qr_ref}"
+        else:
+            listing_key = fallback_key
+        facts = regulatory_facts(text)
+
+        report = get_pipeline().check_listing(ListingBundle(
+            listing_id=listing_key, agent_id=facts.get("agency", "web-visitor"), image_paths=photos,
+            claimed_permit_number=(claimed_permit_number or "").strip() or None,
+            page_text=text, page_qrs=qrs, link_listing_ref=link.listing_ref if link else None))
+
+    return {
+        **report.to_dict(),
+        "listing": {
+            "source": source, "reader": reader, "photos_checked": len(photos),
+            "portal": link.portal if link else None, "listing_ref": link.listing_ref if link else None,
+            **facts,
+        },
+        "latency_ms": round((time.perf_counter() - t0) * 1000),
+    }

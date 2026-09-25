@@ -37,24 +37,29 @@ listing bundle (images[], ad_text, claimed_permit_number, listing/agent id)
 
 | Component | File | Notes |
 |---|---|---|
-| Permit OCR + validation (Azure Vision / Tesseract / Mock backends) | `src/ocr_permit.py` | Backend auto-picked at runtime: Azure Vision when `AZURE_VISION_KEY` is set, else local Tesseract |
+| Permit OCR + validation (Azure Vision / Tesseract / Mock backends) | `src/ocr_permit.py` | Backend auto-picked at runtime: Azure Vision when `AZURE_VISION_KEY` is set, else local Tesseract. A number only counts with a Permit / Trakheesi label next to it |
+| Permit QR code reader | `src/qr_permit.py` | Decodes the Trakheesi permit QR (zxing-cpp) and parses the validation link: listing ID, permit number, signature |
+| Check a listing from its link | `src/listing_link.py` | Reads the listing ID from a Bayut / Property Finder link; one polite fetch (robots.txt, honest User-Agent), falls back to PDF when the portal blocks it |
+| Listing page saved as PDF | `src/pdf_listing.py` | Azure AI Document Intelligence (text + QR codes) when configured, else local (pypdfium2 + Tesseract + zxing); extracts the photos and the Regulatory Information box |
+| Azure AI services switch-on | `scripts/enable_azure_ai.sh` | Creates Document Intelligence + AI Vision (free tier) and wires them into the Container App as secrets |
 | Real base-photo fetcher (Pexels API) | `src/fetch_stock_photos.py` | Downloads free-licensed property/interior photos to use as training backgrounds — see "Training data" below |
 | Synthetic watermark-overlay generator | `src/synthetic_watermark_data.py` | Composites a synthetic brokerage wordmark onto a base photo, in YOLO label format; base photo can be procedural or a real downloaded one |
 | YOLOv8n watermark detector, training + ONNX export | `src/train_watermark_yolo.py` | Trained model + metrics committed under `models/watermark_detector/` — see Results below |
 | ONNX Runtime inference (no torch dependency at serve time) | `src/watermark_detector.py` | Keeps the Docker image small — see `requirements-serve.txt` |
 | Duplicate-photo detector (perceptual hashing) | `src/dup_hash.py` | SQLite-backed index (`data/dup_index.sqlite`) |
 | Rule engine (combines checks into a compliance report) | `src/rule_engine.py` | Rule table in `ARCHITECTURE.md` §3.4 |
-| Pipeline orchestration | `src/pipeline.py` | Wires the three checks + rule engine together |
+| Pipeline orchestration | `src/pipeline.py` | Wires the checks + rule engine together |
+| Real-listing test runner | `scripts/check_real.py` | Runs your own screenshots (kept out of git in `real_tests/`, one subfolder per listing) and scores them against `expected.csv` |
 | FastAPI service + web demo | `src/api.py`, `demo/` | `/` demo page, `/check-listing`, `/check-sample/{id}`, `/health` |
 | Dockerfile + Azure Container Apps deploy script | `Dockerfile`, `scripts/azure_deploy.sh` | Serve-only image (no training deps) — see [`DEPLOY_AZURE.md`](DEPLOY_AZURE.md) |
 
-**26 tests** across 7 modules (`tests/`) — run with `pytest -v`.
+**52 tests** across 9 modules (`tests/`) — run with `pytest -v`.
 
 ## Live demo
 
 **https://trakheesi-api.victoriousriver-467d20dd.uaenorth.azurecontainerapps.io**
 
-The demo page runs five real-photo sample listings through the full pipeline with one click — one per outcome:
+The demo page runs six real-photo sample listings through the full pipeline with one click — one per outcome:
 
 | Sample | What's wrong | Verdict |
 |---|---|---|
@@ -63,8 +68,9 @@ The demo page runs five real-photo sample listings through the full pipeline wit
 | Permit doesn't match the ad | photo shows 1239982634, ad claims 7169578165 | 🟡 review · `PERMIT_MISMATCH` |
 | No permit on the listing | no permit number anywhere | 🔴 fail · `PERMIT_MISSING` |
 | Photo reused by another agent | sample 1's photo, re-cropped, posted by a different agent | 🟡 review · `DUPLICATE_PHOTO` |
+| Permit shown as a QR code | no printed number, only a permit QR (how portals show it now) | ✅ pass |
 
-Each verdict is pinned by `tests/test_demo_samples.py`. Deployment: GitHub Actions builds the serve-only image to `ghcr.io`, and `scripts/deploy_live.sh` runs it on Azure Container Apps (scale-to-zero, ~$0 when idle). You can also upload your own listing photos, or call `POST /check-listing` directly (docs at `/docs`).
+Each verdict is pinned by `tests/test_demo_samples.py`. Deployment: GitHub Actions builds the serve-only image to `ghcr.io`, and `scripts/deploy_live.sh` runs it on Azure Container Apps (scale-to-zero, ~$0 when idle). You can also check a real listing: paste its **Bayut / Property Finder link** and/or upload the **page saved as PDF** (`POST /check-page`), or upload photos (`POST /check-listing`). API docs at `/docs`.
 
 ### What going live taught me
 
@@ -73,6 +79,13 @@ Putting the model in front of new images surfaced three real issues, now fixed o
 1. **Train/serve skew from a font path.** The synthetic-watermark generator loads a Linux font (`DejaVuSans-Bold.ttf`). The training set was generated on macOS, where that path doesn't exist, so every training logo silently fell back to Pillow's small default font. The model therefore learned *small text wordmarks*: on fresh composites it detects **40/48** default-font marks but only **10/48** large bold ones. The demo uses training-style marks; **next step:** bundle a few open-licence fonts in the repo and retrain with varied fonts, sizes and styles.
 2. **Busy photos hid the permit from OCR.** Tesseract's page-layout step missed a clearly printed permit banner on a cluttered living-room photo. Fix: if the full-image pass finds no permit, re-read the top and bottom bands (where permit badges sit) enlarged — `src/ocr_permit.py`.
 3. **A threading bug in the duplicate index.** The SQLite connection was tied to the thread that created it, but FastAPI serves requests from several threads — the first request worked and later ones would crash. Fix: cross-thread connection + lock, with a concurrency test.
+4. **Real listings carry the permit as a QR code.** Testing on a live Bayut listing showed no printed permit number at all — only a Trakheesi permit QR in the "Regulatory Information" box. The QR holds a validation link (`…/api/listing/<id>/permitValidation/<signature>`, the signature being base64url ECDSA), so a printed-number OCR check would fail every compliant portal listing. Fix: decode the QR (`src/qr_permit.py`) and accept it as the permit; if the link carries a permit number, it must match the ad. The signature itself can only be verified by following the link (the portal/DLD holds the key).
+5. **Any 8–12 digit number looked like a permit.** On that same screenshot, OCR "found" two permits that were really listing IDs in the browser's address bar. Fix: a number only counts when a Permit / Trakheesi / Madmoun label sits just before it.
+6. **Portals block automated reading.** A plain request for a Bayut listing gets HTTP 401 with an empty body, even though robots.txt allows listing pages. The app does not try to get around that: the link is still used to cross-check the listing ID against the permit QR (`PERMIT_QR_OTHER_LISTING` catches a permit copied from another ad), and the page comes in as a PDF the user saves from their browser — read by Azure AI Document Intelligence.
+
+On the real Bayut listing saved as PDF, the checker now reads the agency (SEROVIA PROPERTIES L.L.C), RERA / BRN and the signed permit QR for listing 15605505, and checks only this listing's photos: the PDF also prints *other* agencies' listings under "Recommended for you", whose logos were being counted as watermarks on this ad — photos after that heading are now left out (false watermark hits: 21 on screenshots → 1).
+
+Still open from the real-listing test: the listing's photos carry the agency's **own** logo, which is allowed — the real violation is *another* broker's mark. The next rule compares the detected watermark's text with the listing's registered agency, and the model is retrained on large stylised logos.
 
 The detector's recall-first threshold (0.10) is unchanged by design: a false alarm only means "review". The only 5 clean images in the 40-image validation set include 2 false positives, so a larger negative set is also on the list.
 

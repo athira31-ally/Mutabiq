@@ -47,3 +47,29 @@ def test_api_health():
     resp = client.get("/health")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
+
+class _PerImageOCR(MockOCR):
+    """OCR stand-in that returns different text per image file."""
+
+    def __init__(self, texts: dict[str, str]):
+        super().__init__("")
+        self.texts = texts
+
+    def extract_text(self, image_path: str) -> str:
+        return self.texts.get(os.path.basename(image_path), "")
+
+
+def test_permit_printed_on_a_later_photo_is_found(tmp_path):
+    from PIL import Image
+    paths = []
+    for name, shade in (("1_living.jpg", 190), ("2_bedroom.jpg", 170), ("3_permit.jpg", 150)):
+        Image.new("RGB", (200, 200), (shade, shade, shade)).save(tmp_path / name)
+        paths.append(str(tmp_path / name))
+    pipeline = CompliancePipeline(
+        watermark_model_path=MODEL_PATH,
+        dup_index=DuplicatePhotoIndex(":memory:"),
+        ocr_backend=_PerImageOCR({"3_permit.jpg": "Trakheesi Permit No. 7169578165"}),
+    )
+    report = pipeline.check_listing(ListingBundle("L9", "A9", paths, claimed_permit_number="7169578165"))
+    assert report.permit_check.found_numbers == ["7169578165"]
+    assert not any(v.code.startswith("PERMIT") for v in report.violations)

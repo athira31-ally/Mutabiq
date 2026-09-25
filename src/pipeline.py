@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .dup_hash import DuplicatePhotoIndex
-from .ocr_permit import OCRBackend, check_permit, get_backend
+from .ocr_permit import OCRBackend, check_permit, check_permit_text, get_backend
+from .qr_permit import PermitQR, read_permit_qrs
 from .rule_engine import ComplianceReport, evaluate
 from .watermark_detector import WatermarkDetector
 
@@ -18,6 +19,9 @@ class ListingBundle:
     image_paths: list[str]
     claimed_permit_number: str | None = None
     ad_text: str = ""
+    page_text: str = ""                        # text of the listing page (fetched link or uploaded PDF)
+    page_qrs: list[PermitQR] = field(default_factory=list)  # QR codes already decoded from that page
+    link_listing_ref: str | None = None        # listing ID from the pasted Bayut / Property Finder link
 
 
 class CompliancePipeline:
@@ -39,17 +43,30 @@ class CompliancePipeline:
         self.ocr_backend = ocr_backend or get_backend("auto")
 
     def check_listing(self, bundle: ListingBundle, register_images: bool = True) -> ComplianceReport:
-        if not bundle.image_paths:
-            raise ValueError("Listing bundle has no images.")
+        if not bundle.image_paths and not bundle.page_text and not bundle.page_qrs:
+            raise ValueError("Listing bundle has no images and no page content.")
 
-        primary_image = bundle.image_paths[0]
-        permit_result = check_permit(
-            primary_image, claimed_permit_number=bundle.claimed_permit_number, backend=self.ocr_backend
-        )
+        # A printed permit can be on any photo: read them in order and stop at the first that has one.
+        permit_result = None
+        for image_path in bundle.image_paths:
+            result = check_permit(
+                image_path, claimed_permit_number=bundle.claimed_permit_number, backend=self.ocr_backend
+            )
+            permit_result = permit_result or result
+            if result.found_numbers:
+                permit_result = result
+                break
+        # ...or in the listing page's own text (the "Regulatory Information" box of a saved page).
+        if (permit_result is None or not permit_result.found_numbers) and bundle.page_text:
+            from_page = check_permit_text(bundle.page_text, bundle.claimed_permit_number)
+            if from_page.found_numbers or permit_result is None:
+                permit_result = from_page
 
         all_watermark_detections = []
         all_dup_matches = []
+        permit_qrs = list(bundle.page_qrs)
         for i, image_path in enumerate(bundle.image_paths):
+            permit_qrs.extend(read_permit_qrs(image_path))  # the permit QR can be on any image
             all_watermark_detections.extend(self.watermark_detector.detect(image_path))
             all_dup_matches.extend(
                 self.dup_index.find_matches(image_path, exclude_listing_id=bundle.listing_id)
@@ -67,4 +84,6 @@ class CompliancePipeline:
             permit_check=permit_result,
             watermark_detections=all_watermark_detections,
             duplicate_matches=all_dup_matches,
+            permit_qrs=permit_qrs,
+            link_listing_ref=bundle.link_listing_ref,
         )

@@ -24,7 +24,7 @@ h1{font-size:clamp(32px,5.5vw,56px);line-height:1.05;letter-spacing:-.03em;font-
 .check b{display:block;color:var(--ink);font-size:15px;margin-bottom:2px}
 h2{font-size:24px;letter-spacing:-.01em;margin:40px 0 6px}
 .hint{color:var(--muted);font-size:15px}
-.samples{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:18px}
+.samples{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-top:18px}
 .sample{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;text-align:left;
   color:inherit;font:inherit;transition:border-color .15s, transform .15s}
 .sample:hover,.sample:focus-visible{border-color:var(--sand);transform:translateY(-2px);outline:none}
@@ -50,6 +50,11 @@ button.go:disabled{opacity:.6;cursor:wait}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin-top:16px;font-size:14px}
 .kv dt{color:var(--dim)} .kv dd{color:var(--ink)}
 .preview{width:100%;border-radius:12px;margin-top:14px;border:1px solid var(--line)}
+.tabs{display:flex;gap:6px;margin:6px 0 4px}
+.tab{background:var(--card2);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:7px 14px;font:600 13px Inter,system-ui,sans-serif;cursor:pointer}
+.tab.on{background:var(--sand);border-color:var(--sand);color:#1b1407}
+.facts{margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card2);font-size:14px;color:var(--muted)}
+.facts b{color:var(--ink)}
 .note{margin-top:34px;padding:16px 18px;border:1px dashed var(--line);border-radius:14px;color:var(--muted);font-size:14px}
 footer{padding:40px 0 56px;color:var(--dim);font-size:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
 @media (max-width:900px){.samples{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.checks{grid-template-columns:1fr 1fr}}
@@ -61,9 +66,9 @@ footer{padding:40px 0 56px;color:var(--dim);font-size:14px;display:flex;justify-
   <div class="eyebrow">Computer vision · OCR · UAE PropTech</div>
   <h1>Trakheesi Compliance Detector</h1>
   <p class="lede">Checks a Dubai property listing for Trakheesi advertising violations <b>before</b> it goes live — DLD fines start at AED 50,000.</p>
-  <p class="sub">One API call runs three checks on the listing photos and combines them into a <b>pass / review / fail</b> report.</p>
+  <p class="sub">One API call runs these checks on the listing photos and combines them into a <b>pass / review / fail</b> report.</p>
   <div class="checks">
-    <div class="check"><b>Permit OCR</b>Reads the permit number from the image and matches it to the ad.</div>
+    <div class="check"><b>Permit check</b>Reads the printed permit number or the Trakheesi permit QR code, and matches it to the ad.</div>
     <div class="check"><b>Watermark detector</b>YOLOv8n, exported to ONNX Runtime — flags other brokers' logos.</div>
     <div class="check"><b>Reused photos</b>Perceptual hashing catches the same photo posted by another agent.</div>
     <div class="check"><b>Rule engine</b>Turns the findings into a DLD-style pass / review / fail verdict.</div>
@@ -76,16 +81,30 @@ footer{padding:40px 0 56px;color:var(--dim);font-size:14px;display:flex;justify-
 
 <div class="grid2">
   <div class="panel">
-    <h2 style="margin-top:0">…or check your own</h2>
-    <p class="hint">Upload listing photos. The first photo is read for the permit number.</p>
-    <form id="form">
+    <h2 style="margin-top:0">…or check a real listing</h2>
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab on" data-tab="page" role="tab">Link or page PDF</button>
+      <button type="button" class="tab" data-tab="photos" role="tab">Photos</button>
+    </div>
+    <form id="pageform" data-pane="page">
+      <p class="hint">Paste a Bayut or Property Finder link. Portals often block automated reading (Bayut does), so for those also upload the page as a PDF: open the listing, press <b>Cmd+P</b> (Ctrl+P), choose <b>Save as PDF</b>.</p>
+      <label for="url">Listing link</label>
+      <input id="url" name="listing_url" type="text" inputmode="url" placeholder="https://www.bayut.com/property/details-…">
+      <label for="pdf">Listing page as PDF (optional, up to 20 MB)</label>
+      <input id="pdf" name="page_pdf" type="file" accept="application/pdf">
+      <label for="permit2">Permit number claimed in the ad (optional)</label>
+      <input id="permit2" name="claimed_permit_number" type="text" inputmode="numeric" placeholder="e.g. 7169578165">
+      <button class="go" id="go2" type="submit">Check listing</button>
+    </form>
+    <form id="form" data-pane="photos" hidden>
+      <p class="hint">Upload one or more listing photos. Each photo is read for a printed permit number and scanned for a permit QR code.</p>
       <label for="images">Listing photos (JPG/PNG, up to 8 MB each)</label>
       <input id="images" name="images" type="file" accept="image/*" multiple required>
       <label for="permit">Permit number claimed in the ad</label>
       <input id="permit" name="claimed_permit_number" type="text" inputmode="numeric" placeholder="e.g. 7169578165">
       <label for="ad">Ad text (optional)</label>
       <textarea id="ad" name="ad_text" rows="2" placeholder="2BR apartment in Dubai Marina…"></textarea>
-      <button class="go" id="go" type="submit">Check listing</button>
+      <button class="go" id="go" type="submit">Check photos</button>
     </form>
   </div>
   <div class="panel" id="result" aria-live="polite">
@@ -95,7 +114,7 @@ footer{padding:40px 0 56px;color:var(--dim);font-size:14px;display:flex;justify-
 </div>
 
 <div class="note">
-  <b style="color:var(--ink)">Honest limits.</b> The watermark model was trained on synthetic brokerage wordmarks and is best at small text marks like the ones in its training data; large stylised logos are the next thing to train on. It is tuned for recall (a false alarm only means “review”), so busy photos can occasionally be flagged. OCR here is Tesseract; the service can switch to Azure AI Vision with one setting. The reuse index resets when the app scales to zero.
+  <b style="color:var(--ink)">Honest limits.</b> The permit QR is decoded and checked against the ad, but its signature can only be verified by following the link (the portal/DLD holds the key). The watermark model was trained on synthetic brokerage wordmarks and is best at small text marks like the ones in its training data; large stylised logos are the next thing to train on. It is tuned for recall (a false alarm only means “review”), so busy photos can occasionally be flagged. OCR here is Tesseract; the service can switch to Azure AI Vision with one setting. The reuse index resets when the app scales to zero.
 </div>
 
 <footer>
@@ -113,19 +132,34 @@ function render(r, img) {
     ? r.violations.map(x => `<div class="v"><code>${esc(x.code)}</code> · <span class="${esc(x.severity)}" style="border:0;background:none;padding:0">${esc(x.severity)}</span><br>${esc(x.message)}</div>`).join("")
     : `<div class="v">No violations found — ready to publish.</div>`;
   const found = r.permit.found_numbers.length ? r.permit.found_numbers.map(esc).join(", ") : "none";
+  const qrs = r.permit.qr_codes || [];
+  const qr = qrs.length ? "found" + (qrs[0].listing_ref ? ` (listing ${esc(qrs[0].listing_ref)})` : "") + (qrs[0].permit_number ? ` · permit ${esc(qrs[0].permit_number)}` : "") : "none";
   $("#result").innerHTML = `
     <h2 style="margin-top:0">Result</h2>
     <span class="badge ${esc(r.status)}">${esc(r.status)}</span>
     ${r.expected ? `<span class="hint" style="margin-left:10px">expected: ${esc(r.expected)}</span>` : ""}
     <div class="viol">${v}</div>
     <dl class="kv">
-      <dt>Permit read from image</dt><dd>${found}</dd>
-      <dt>Matches the ad</dt><dd>${r.permit.matched_claimed ? "yes" : "no"}</dd>
+      <dt>Printed permit number</dt><dd>${found}</dd>
+      <dt>Permit QR code</dt><dd>${qr}</dd>
+      <dt>Matches the ad</dt><dd>${r.permit.source === "none" ? "—" : (r.violations.some(v => v.code === "PERMIT_MISMATCH") ? "no" : "yes")}</dd>
       <dt>Watermarks detected</dt><dd>${r.watermarks_detected}</dd>
       <dt>Reused-photo matches</dt><dd>${r.duplicate_matches}</dd>
       ${r.latency_ms ? `<dt>Time</dt><dd>${r.latency_ms} ms</dd>` : ""}
     </dl>
+    ${facts(r.listing)}
     ${img ? `<img class="preview" src="${img}" alt="Checked listing photo">` : ""}`;
+}
+
+function facts(l) {
+  if (!l) return "";
+  const bits = [];
+  if (l.portal) bits.push(`${esc(l.portal)} listing <b>${esc(l.listing_ref || "?")}</b>`);
+  if (l.agency) bits.push(`agency <b>${esc(l.agency)}</b>`);
+  if (l.brn) bits.push(`BRN <b>${esc(l.brn)}</b>`);
+  if (l.rera) bits.push(`RERA <b>${esc(l.rera)}</b>`);
+  bits.push(`${esc(l.photos_checked)} photo(s) checked · read from ${l.source === "pdf" ? "PDF (" + esc(l.reader) + ")" : "the link"}`);
+  return `<div class="facts">${bits.join(" · ")}</div>`;
 }
 
 function busy(msg) { $("#result").innerHTML = `<h2 style="margin-top:0">Result</h2><p class="result-empty">${msg}</p>`; }
@@ -143,10 +177,33 @@ fetch("/samples/samples.json").then(r => r.json()).then(list => {
   $("#samples").innerHTML = list.map((s, i) => `
     <button class="sample" data-i="${i}" type="button">
       <img src="/samples/${encodeURIComponent(s.image)}" alt="${esc(s.title)}" loading="lazy">
-      <div><b>${esc(s.title)}</b><span>claims permit ${esc(s.claimed)}</span></div>
+      <div><b>${esc(s.title)}</b><span>${s.claimed ? "claims permit " + esc(s.claimed) : "permit via QR code"}</span></div>
     </button>`).join("");
   document.querySelectorAll(".sample").forEach(b => b.onclick = () => runSample(list[+b.dataset.i]));
 });
+
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
+  document.querySelectorAll("[data-pane]").forEach(f => f.hidden = f.dataset.pane !== t.dataset.tab);
+});
+
+$("#pageform").onsubmit = async e => {
+  e.preventDefault();
+  if (!$("#url").value.trim() && !$("#pdf").files.length) { busy("Paste a listing link or choose the page PDF."); return; }
+  $("#go2").disabled = true;
+  busy("Reading the listing — photos, permit QR and regulatory details… (the first run after idle can take ~20 s)");
+  try {
+    const fd = new FormData($("#pageform"));
+    if (!$("#pdf").files.length) fd.delete("page_pdf");
+    const r = await fetch("/check-page", {method: "POST", body: fd});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || r.statusText);
+    if (j.status === "needs_pdf") {
+      busy(`<b style="color:var(--ink)">${esc(j.listing.portal)} listing ${esc(j.listing.listing_ref || "")}:</b> ${esc(j.message)}`);
+    } else render(j);
+  } catch (err) { busy("Something went wrong: " + esc(err.message)); }
+  $("#go2").disabled = false;
+};
 
 $("#form").onsubmit = async e => {
   e.preventDefault();

@@ -43,5 +43,14 @@
     "agent_id": "AGENT-205",
     "expect": "review",
     "image": "e_reused.jpg"
+  },
+  {
+    "id": "f_qr_permit",
+    "title": "Permit shown as a QR code",
+    "claimed": "",
+    "listing_id": "DEMO-F",
+    "agent_id": "AGENT-106",
+    "expect": "pass",
+    "image": "f_qr_permit.jpg"
   }
 ]

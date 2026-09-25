@@ -18,14 +18,13 @@ string, 8-12 digits, no letter prefix (e.g. "1239982634", not "DLD-1239982634").
 Modern listings also carry a companion Madmoun QR code next to the number,
 which is out of scope here (decoding a QR code is a different, much easier
 CV problem than watermark detection — a natural follow-up, not built yet).
-PERMIT_REGEX below matches that confirmed format. One real ambiguity worth
-knowing about: a bare 8-12 digit run can also match a phone number sitting
-elsewhere in the ad text (a UAE mobile number is typically 9-12 digits
-depending on how it's formatted) — this regex doesn't try to disambiguate by
-nearby keywords like "Permit #", so a false-positive extraction from a phone
-number is possible on ad text that includes one. Worth a keyword-proximity
-check as a future improvement; not needed for the cross-check logic below,
-which just compares whatever it found against the claimed number.
+PERMIT_REGEX below matches that confirmed format. A bare 8-12 digit run also
+matches phone numbers, listing IDs and the like, and testing on a real Bayut
+screenshot proved it: OCR "found" two permits that were really listing IDs in
+the browser's address bar. So find_permit_numbers() only accepts a number with a
+permit keyword (Permit / Trakheesi / Madmoun / رخصة / تصريح) just before it,
+on the same line or the line above. Portals now often show only the permit QR
+code; that is read separately in qr_permit.py.
 """
 
 from __future__ import annotations
@@ -42,6 +41,9 @@ from enum import Enum
 # string, no letter prefix. See the module docstring for the phone-number
 # ambiguity this leaves open.
 PERMIT_REGEX = re.compile(r"\b\d{8,12}\b")
+# A number only counts as a permit when one of these appears shortly before it.
+PERMIT_KEYWORD_REGEX = re.compile(r"permit|trakheesi|madmoun|madhmoun|رخصة|تصريح", re.I)
+KEYWORD_WINDOW = 60  # characters before the number, enough for "Permit No." on the line above
 
 EMIRATE_SYSTEMS = {
     "dubai": "Trakheesi",
@@ -97,7 +99,7 @@ class TesseractOCR(OCRBackend):
         with Image.open(image_path) as img:
             img = img.convert("RGB")
             text = pytesseract.image_to_string(img)
-            if PERMIT_REGEX.search(text):
+            if find_permit_numbers(text):
                 return text
             # Busy photos can hide a permit banner from Tesseract's page layout analysis. Permit
             # badges usually sit in a top or bottom band, so read those bands on their own, enlarged.
@@ -133,10 +135,14 @@ class AzureVisionOCR(OCRBackend):
         from azure.core.credentials import AzureKeyCredential
 
         client = ImageAnalysisClient(self.endpoint, AzureKeyCredential(self.key))
-        with open(image_path, "rb") as f:
-            result = client.analyze(
-                image_data=f.read(), visual_features=[VisualFeatures.READ]
-            )
+        try:
+            with open(image_path, "rb") as f:
+                result = client.analyze(
+                    image_data=f.read(), visual_features=[VisualFeatures.READ]
+                )
+        except Exception:
+            # Service down, quota used up, image too large: a local read beats failing the whole check.
+            return TesseractOCR().extract_text(image_path)
         if not result.read:
             return ""
         lines = []
@@ -192,8 +198,13 @@ def _normalize(s: str) -> str:
 
 
 def find_permit_numbers(text: str) -> list[str]:
-    """Pull every permit-shaped substring out of OCR'd text."""
-    return [m.group(0) for m in PERMIT_REGEX.finditer(text)]
+    """Permit-shaped numbers that have a permit keyword just before them (see the module docstring)."""
+    found = []
+    for m in PERMIT_REGEX.finditer(text):
+        before = text[max(0, m.start() - KEYWORD_WINDOW):m.start()]
+        if PERMIT_KEYWORD_REGEX.search(before) and m.group(0) not in found:
+            found.append(m.group(0))
+    return found
 
 
 def check_permit(
@@ -205,7 +216,11 @@ def check_permit(
     against what the listing claims.
     """
     backend = backend or get_backend("auto")
-    raw_text = backend.extract_text(image_path)
+    return check_permit_text(backend.extract_text(image_path), claimed_permit_number)
+
+
+def check_permit_text(raw_text: str, claimed_permit_number: str | None = None) -> PermitCheckResult:
+    """The permit check on text you already have (a listing page, a PDF, OCR output)."""
     found = find_permit_numbers(raw_text)
 
     result = PermitCheckResult(

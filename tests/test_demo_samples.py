@@ -17,7 +17,8 @@ pytestmark = [
     pytest.mark.skipif(shutil.which("tesseract") is None, reason="tesseract binary not installed"),
 ]
 EXPECTED_CODES = {"a_compliant": [], "b_watermark": ["WATERMARK_DETECTED"], "c_mismatch": ["PERMIT_MISMATCH"],
-                  "d_no_permit": ["PERMIT_MISSING"], "e_reused": ["DUPLICATE_PHOTO"]}
+                  "d_no_permit": ["PERMIT_MISSING"], "e_reused": ["DUPLICATE_PHOTO"],
+                  "f_qr_permit": []}
 
 
 def _samples():
@@ -44,7 +45,7 @@ def client():
 
 def test_demo_page_and_samples_are_served(client):
     assert "Trakheesi Compliance Detector" in client.get("/").text
-    assert len(client.get("/samples/samples.json").json()) == 5
+    assert len(client.get("/samples/samples.json").json()) == 6
     assert client.get("/samples/a_compliant.jpg").status_code == 200
 
 
@@ -61,3 +62,11 @@ def test_upload_your_own_listing(client):
                         files=[("images", ("photo.jpg", f, "image/jpeg"))]).json()
     assert r["status"] == "review" and r["listing_id"].startswith("WEB-")
     assert "1239982634" in r["permit"]["found_numbers"]
+
+
+def test_qr_sample_is_passed_on_its_qr_code_alone():
+    pipe = CompliancePipeline(MODEL, dup_index=DuplicatePhotoIndex(":memory:"))
+    r = pipe.check_listing(ListingBundle("DEMO-F", "AGENT-106", [f"{SAMPLES}/f_qr_permit.jpg"], None)).to_dict()
+    assert r["status"] == "pass"
+    assert r["permit"]["found_numbers"] == [] and r["permit"]["source"] == "qr"
+    assert r["permit"]["qr_codes"][0]["listing_ref"] == "DEMO-F"
