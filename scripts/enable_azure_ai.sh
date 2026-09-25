@@ -2,11 +2,12 @@
 # Turn on the Azure AI services for the live app:
 #   - Azure AI Document Intelligence: reads a listing page saved as PDF (text + permit QR codes)
 #   - Azure AI Vision (Read OCR):     reads printed permit numbers on photos
-# Both start on the free tier (F0). Without them the app still works, using local Tesseract / zxing.
+# Reuses what the resource group already has (a Document Intelligence / Vision resource, or a multi-service
+# "AIServices" resource, which serves both from one endpoint) and only creates what is missing.
+# Without these the app still works, using local Tesseract / zxing.
 #
 #   bash scripts/enable_azure_ai.sh
-#   SKU=S0 bash scripts/enable_azure_ai.sh              # if your subscription already has a free one of either kind
-#   LOCATION=westeurope bash scripts/enable_azure_ai.sh # if a service isn't offered in UAE North
+#   SKU=S0 bash scripts/enable_azure_ai.sh     # if a new resource is needed and the free tier (F0) is taken
 set -euo pipefail
 
 RG=rg-trakheesi-demo
@@ -14,22 +15,41 @@ APP=trakheesi-api
 LOCATION=${LOCATION:-uaenorth}
 SKU=${SKU:-F0}
 SUFFIX=$(az account show --query id -o tsv | tr -d '-' | cut -c1-6)
-DI=trakheesi-docintel-$SUFFIX
-VISION=trakheesi-vision-$SUFFIX
 
-create() {
-  local name=$1 kind=$2
-  if az cognitiveservices account show -n "$name" -g "$RG" >/dev/null 2>&1; then
-    echo ">> $name already exists"
-  else
-    echo ">> Creating $name ($kind, $SKU, $LOCATION)"
-    az cognitiveservices account create -n "$name" -g "$RG" -l "$LOCATION" --kind "$kind" --sku "$SKU" \
-      --custom-domain "$name" --yes -o none
-  fi
+# Clean up resources a failed attempt left behind (state "Failed"), including their soft-deleted copy.
+for name in $(az cognitiveservices account list -g "$RG" --query "[?properties.provisioningState=='Failed'].name" -o tsv); do
+  loc=$(az cognitiveservices account show -n "$name" -g "$RG" --query location -o tsv)
+  echo ">> Removing failed resource $name"
+  az cognitiveservices account delete -n "$name" -g "$RG" -o none
+  az cognitiveservices account purge -n "$name" -g "$RG" -l "$loc" -o none || true
+done
+
+existing() {  # first working resource in the RG whose kind is in the given list (in order of preference)
+  local kind name
+  for kind in "$@"; do
+    name=$(az cognitiveservices account list -g "$RG" \
+      --query "[?kind=='$kind' && properties.provisioningState=='Succeeded'].name | [0]" -o tsv)
+    if [ -n "$name" ]; then echo "$name"; return; fi
+  done
 }
 
-create "$DI" FormRecognizer
-create "$VISION" ComputerVision
+ensure() {  # ensure <new-name> <kind to create> <acceptable kinds...>
+  local new=$1 create_kind=$2; shift 2
+  local name
+  name=$(existing "$@")
+  if [ -z "$name" ]; then
+    echo ">> Creating $new ($create_kind, $SKU, $LOCATION)" >&2
+    az cognitiveservices account create -n "$new" -g "$RG" -l "$LOCATION" --kind "$create_kind" --sku "$SKU" \
+      --custom-domain "$new" --yes -o none
+    name=$new
+  else
+    echo ">> Using existing $name for $create_kind" >&2
+  fi
+  echo "$name"
+}
+
+DI=$(ensure "trakheesi-docintel-$SUFFIX" FormRecognizer FormRecognizer AIServices CognitiveServices)
+VISION=$(ensure "trakheesi-vision-$SUFFIX" ComputerVision ComputerVision AIServices CognitiveServices)
 
 DI_ENDPOINT=$(az cognitiveservices account show -n "$DI" -g "$RG" --query properties.endpoint -o tsv)
 DI_KEY=$(az cognitiveservices account keys list -n "$DI" -g "$RG" --query key1 -o tsv)
@@ -43,6 +63,6 @@ az containerapp update -n "$APP" -g "$RG" -o none --set-env-vars \
   "AZURE_VISION_ENDPOINT=$VISION_ENDPOINT" "AZURE_VISION_KEY=secretref:vision-key"
 
 echo
-echo "Done. Document Intelligence: $DI_ENDPOINT"
-echo "      AI Vision:             $VISION_ENDPOINT"
-echo "The app restarts with both on; the result panel shows 'read from PDF (azure-document-intelligence)'."
+echo "Done. Document Intelligence: $DI ($DI_ENDPOINT)"
+echo "      AI Vision:             $VISION ($VISION_ENDPOINT)"
+echo "The app restarts with both on; a PDF check then shows 'read from PDF (azure-document-intelligence)'."
