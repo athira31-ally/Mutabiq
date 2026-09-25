@@ -53,7 +53,7 @@ listing bundle (images[], ad_text, claimed_permit_number, listing/agent id)
 | FastAPI service + web demo | `src/api.py`, `demo/` | `/` demo page, `/check-listing`, `/check-sample/{id}`, `/health` |
 | Dockerfile + Azure Container Apps deploy script | `Dockerfile`, `scripts/azure_deploy.sh` | Serve-only image (no training deps) — see [`DEPLOY_AZURE.md`](DEPLOY_AZURE.md) |
 
-**52 tests** across 9 modules (`tests/`) — run with `pytest -v`.
+**53 tests** across 9 modules (`tests/`) — run with `pytest -v`.
 
 ## Live demo
 

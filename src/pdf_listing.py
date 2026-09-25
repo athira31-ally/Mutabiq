@@ -36,6 +36,7 @@ class PageExtract:
 
 
 _NEXT_LABEL = r"(?=\s+(?:Zone\s+Name|Registered\s+Agency|RERA|ORN|BRN|Trakheesi|Permit|DED|$))"
+_LABEL_WORDS = r"(?:Zone\s+Name|Registered\s+Agency|RERA|ORN|BRN|Trakheesi|Permit)\b"
 FACT_PATTERNS = {  # applied to whitespace-collapsed text: a saved PDF wraps labels and values over lines
     "agency": r"Registered\s+Agency\s*:?\s*(.{3,80}?)" + _NEXT_LABEL,
     "rera": r"\b(?:RERA|ORN)\s*(?:No\.?|Number)?\s*:?\s*(\d{3,8})\b",
@@ -49,9 +50,11 @@ def regulatory_facts(text: str) -> dict:
     flat = " ".join(text.split())
     out = {}
     for key, pattern in FACT_PATTERNS.items():
-        m = re.search(pattern, flat, re.I)
-        if m:
-            out[key] = m.group(1).strip()
+        for m in re.finditer(pattern, flat, re.I):
+            value = m.group(1).strip()
+            if not re.match(_LABEL_WORDS, value, re.I):   # a label read as a value (column-wise text)
+                out[key] = value
+                break
     return out
 
 
@@ -72,6 +75,10 @@ def _read_with_docintel(pdf_bytes: bytes) -> tuple[str, list[str]]:
     result = poller.result()
     codes = [b.value for p in (result.pages or []) for b in (p.barcodes or []) if b.value]
     return result.content or "", codes
+
+
+def _text_layer(pdf) -> str:
+    return "\n".join(pdf[i].get_textpage().get_text_range() for i in range(min(len(pdf), MAX_PAGES)))
 
 
 def _read_locally(pdf) -> tuple[str, list[str]]:
@@ -152,8 +159,12 @@ def extract_pdf(pdf_path: str | Path, out_dir: str | Path) -> PageExtract:
         reader = "local"
         if _docintel_configured():
             try:
-                text, codes = _read_with_docintel(data)
+                di_text, codes = _read_with_docintel(data)
                 reader = "azure-document-intelligence"
+                # The PDF's own text layer keeps "label value" order; Document Intelligence may read a
+                # two-column box column by column (all labels, then all values). Put the text layer first
+                # so regulatory_facts() matches it, and keep DI's text (it also OCRs text inside images).
+                text = _text_layer(pdf) + "\n" + di_text
             except Exception:  # service down / quota: the local reader still gives an answer
                 text, codes = _read_locally(pdf)
         else:

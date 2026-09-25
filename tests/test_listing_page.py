@@ -179,3 +179,17 @@ def test_photos_of_other_recommended_listings_are_left_out(tmp_path):
     path = tmp_path / "with_recs.pdf"
     pdf.save(path)
     assert len(extract_pdf(path, tmp_path / "out").photo_paths) == 1
+
+
+def test_docintel_column_order_still_gives_the_facts(listing_pdf, tmp_path, monkeypatch):
+    # Document Intelligence can return a two-column box as all labels, then all values; the PDF's own text
+    # layer (label value order) is read too, so the facts still come out.
+    import src.pdf_listing as pl
+    monkeypatch.setattr(pl, "_docintel_configured", lambda: True)
+    monkeypatch.setattr(pl, "_read_with_docintel", lambda data: (
+        "Zone Name\nRegistered Agency\nRERA\nBRN\nWadi Al Safa 3\nSEROVIA PROPERTIES L.L.C\n51885\n84967", [QR_LINK]))
+    monkeypatch.setattr(pl, "_text_layer", lambda pdf: "Registered Agency SEROVIA PROPERTIES L.L.C RERA 51885 BRN 84967")
+    x = extract_pdf(listing_pdf, tmp_path / "out")
+    assert x.reader == "azure-document-intelligence"
+    assert regulatory_facts(x.text)["agency"] == "SEROVIA PROPERTIES L.L.C"
+    assert [q.listing_ref for q in x.qrs] == ["15605505"]
