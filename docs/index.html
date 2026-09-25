@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mutabiq · Trakheesi compliance checker for Dubai property listings — Athira Kizhake Kammilli</title>
+<meta name="description" content="Mutabiq (مطابق, 'compliant') checks Dubai property ads for Trakheesi advertising violations before they go live: permit QR, Azure AI Document Intelligence, Azure AI Vision, YOLOv8 watermark detection and reused-photo hashing.">
+<meta property="og:title" content="Mutabiq — Trakheesi compliance checker for Dubai property listings">
+<meta property="og:description" content="Checks a listing before it goes live: signed permit QR, Azure Document Intelligence + AI Vision, YOLOv8 watermark detection, reused-photo hashing. Tested on real Bayut listings.">
+<meta property="og:image" content="https://athira31-ally.github.io/Mutabiq/images/00-cover.jpg">
+<meta property="og:url" content="https://athira31-ally.github.io/Mutabiq/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0A1220;--card:#122036;--card2:#0E1829;--line:#243553;--ink:#F3EEE4;--muted:#93A0B8;--dim:#62708A;--sand:#D9B061;--teal:#35C2B0;--rose:#E37D6F;--amber:#E8B04B}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font:400 17px/1.65 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--sand);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1160px;margin:0 auto;padding:0 20px}
+nav{position:sticky;top:0;z-index:10;background:rgba(10,18,32,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px;gap:16px}
+.brand{font-weight:700;color:var(--ink)}
+.brand span{font-family:"IBM Plex Sans Arabic";color:var(--sand);margin-left:6px}
+nav .links{display:flex;gap:18px;font-size:15px;flex-wrap:wrap}
+nav .links a{color:var(--muted)}
+header{padding:72px 0 40px}
+.eyebrow{font:600 13px/1.4 Inter,system-ui,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--sand)}
+h1{font-size:clamp(40px,7vw,76px);line-height:1.05;letter-spacing:-.03em;font-weight:800;margin-top:18px}
+h1 .ar{font-family:"IBM Plex Sans Arabic";color:var(--sand);font-weight:600;margin-left:14px;letter-spacing:0}
+.meaning{color:var(--muted);margin-top:10px}
+.lede{font-size:clamp(18px,2.2vw,23px);line-height:1.5;margin-top:20px;max-width:820px}
+.sub{color:var(--muted);margin-top:14px;max-width:780px}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:600;font-size:15px;border:1px solid var(--line);color:var(--ink);background:var(--card)}
+.btn.primary{background:var(--sand);border-color:var(--sand);color:#1b1407}
+.btn:hover{text-decoration:none;filter:brightness(1.08)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:44px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 22px}
+.stat b{display:block;white-space:nowrap;font-size:34px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:14px}
+section{padding:56px 0;border-top:1px solid var(--line)}
+section h2{font-size:clamp(26px,3.4vw,36px);letter-spacing:-.02em;line-height:1.15;margin-top:10px}
+section p.intro{color:var(--muted);margin-top:10px;max-width:780px}
+figure{margin-top:26px}
+figure img{width:100%;height:auto;display:block;border-radius:18px;border:1px solid var(--line)}
+figcaption{color:var(--dim);font-size:14px;margin-top:10px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:22px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px}
+.box h3{font-size:17px}
+.box p{color:var(--muted);font-size:15px;margin-top:6px}
+.box .tag{font:600 12px Inter,system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.diagram{margin-top:26px;background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:18px;overflow-x:auto}
+.diagram svg{display:block;width:100%;min-width:760px;height:auto}
+.steps{margin-top:24px;display:flex;flex-direction:column;gap:0;border-left:2px solid var(--line);margin-left:8px}
+.step{position:relative;padding:0 0 26px 28px}
+.step:before{content:"";position:absolute;left:-8px;top:6px;width:14px;height:14px;border-radius:50%;background:var(--bg);border:2px solid var(--sand)}
+.step.done:before{background:var(--teal);border-color:var(--teal)}
+.step h3{font-size:17px}
+.step p{color:var(--muted);font-size:15px;margin-top:4px;max-width:820px}
+.step .num{font-variant-numeric:tabular-nums;color:var(--sand);font-weight:700}
+.verdict{display:inline-block;padding:3px 11px;border-radius:999px;font:700 12px Inter,system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;vertical-align:2px}
+.v-pass{background:rgba(53,194,176,.15);color:var(--teal);border:1px solid rgba(53,194,176,.5)}
+.v-review{background:rgba(232,176,75,.14);color:var(--amber);border:1px solid rgba(232,176,75,.5)}
+.v-fail{background:rgba(227,125,111,.14);color:var(--rose);border:1px solid rgba(227,125,111,.5)}
+ul.clean{list-style:none;margin-top:14px}
+ul.clean li{padding:8px 0 8px 22px;position:relative;color:var(--ink)}
+ul.clean li:before{content:"";position:absolute;left:0;top:17px;width:8px;height:8px;border-radius:50%;background:var(--teal)}
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:14px;color:var(--ink)}
+.chip i{font-style:normal;color:var(--dim);margin-left:6px}
+footer{padding:48px 0 60px;border-top:1px solid var(--line);color:var(--muted);font-size:15px}
+footer .row{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
+@media (max-width:760px){.stats{grid-template-columns:1fr 1fr}.stat b{font-size:26px}.stat{padding:16px}.two,.three{grid-template-columns:1fr}nav .links a.hide-sm{display:none}header{padding-top:48px}}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <a class="brand" href="#">Mutabiq<span>مطابق</span></a>
+  <div class="links">
+    <a href="#experience" class="hide-sm">Experience</a>
+    <a href="#how" class="hide-sm">How it works</a>
+    <a href="#real" class="hide-sm">Real listing</a>
+    <a href="https://github.com/athira31-ally/Mutabiq">GitHub</a>
+  </div>
+</div></nav>
+
+<header><div class="wrap">
+  <div class="eyebrow">Case study · Computer vision &amp; document AI · 2026</div>
+  <h1>Mutabiq<span class="ar" lang="ar">مطابق</span></h1>
+  <p class="meaning">Arabic for <i>compliant</i></p>
+  <p class="lede">Checks a Dubai property ad for Trakheesi advertising violations <b>before</b> it goes live, from a listing link, the saved page, or its photos.</p>
+  <p class="sub">It reads the signed DLD permit QR, pulls the Regulatory Information with Azure AI Document Intelligence, reads photos with Azure AI Vision, spots other brokers' watermarks with a YOLOv8 model, and catches photos re-posted by another agent, then combines everything into a pass / review / fail verdict.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://trakheesi-api.victoriousriver-467d20dd.uaenorth.azurecontainerapps.io">Try the live app ↗</a>
+    <a class="btn" href="https://github.com/athira31-ally/Mutabiq">View the code</a>
+    <a class="btn" href="https://www.linkedin.com/in/athira-kizhake-kammilli-150116198">LinkedIn</a>
+  </div>
+  <div class="stats">
+    <div class="stat"><b style="color:var(--sand)">21 → 0</b><span>false flags on a real Bayut listing</span></div>
+    <div class="stat"><b style="color:var(--teal)">0.3 s</b><span>photo check with Azure AI Vision</span></div>
+    <div class="stat"><b>63</b><span>automated tests in CI</span></div>
+    <div class="stat"><b>0.91</b><span>watermark detector mAP50</span></div>
+  </div>
+</div></header>
+
+<section id="problem"><div class="wrap">
+  <div class="eyebrow">01 — The problem</div>
+  <h2>One missing permit can cost an agency AED 50,000</h2>
+  <p class="intro">Every property ad in Dubai needs a valid Trakheesi advertising permit from the Dubai Land Department, and today that permit is shown as a signed QR code. Agencies publish hundreds of listings a week, so a few slip through: no permit, a permit copied from another ad, a photo carrying another broker's logo, or a photo lifted from someone else's listing. Mutabiq catches these before the ad is published, not after the fine.</p>
+  <div class="three">
+    <div class="box"><div class="tag">Permit</div><h3>Missing or mismatched</h3><p>No permit QR or number, a number that differs from the ad, or a QR that belongs to a different listing.</p></div>
+    <div class="box"><div class="tag">Watermark</div><h3>Another broker's logo</h3><p>The usual sign of a copied photo. The agency's own logo is allowed, and Mutabiq tells the two apart.</p></div>
+    <div class="box"><div class="tag">Reused photo</div><h3>Posted by another agent</h3><p>Perceptual hashing finds the same photo even after re-cropping or re-compression.</p></div>
+  </div>
+</div></section>
+
+<section id="experience"><div class="wrap">
+  <div class="eyebrow">02 — The experience</div>
+  <h2>Paste a link, drop the page, get a verdict</h2>
+  <p class="intro">Six one-click sample listings show each outcome. For a real ad, paste the Bayut or Property Finder link and upload the page saved as a PDF, or upload the photos.</p>
+  <figure><img src="images/01-demo.jpg" alt="Mutabiq demo page with six sample listings" loading="lazy"></figure>
+  <figure><img src="images/03-page-check.jpg" alt="A listing checked from its link and saved page: permit QR found, agency and BRN read, verdict pass" loading="lazy">
+    <figcaption>Link + saved page: the permit QR is matched to the listing in the link, the Regulatory Information is read, and only the listing's own photos are checked. Demo listing with made-up details.</figcaption></figure>
+  <div class="two" style="align-items:start">
+    <figure><img src="images/02-sample-result.jpg" alt="A sample listing flagged for an unauthorised watermark" loading="lazy">
+      <figcaption>Sample B: another brokerage's wordmark on the photo, flagged for review.</figcaption></figure>
+    <div class="box" style="margin-top:26px"><h3>Six samples, one per outcome</h3>
+      <ul class="clean" style="margin-top:8px;font-size:15px">
+        <li>Compliant listing <span class="verdict v-pass">pass</span></li>
+        <li>Another broker's watermark <span class="verdict v-review">review</span></li>
+        <li>Permit doesn't match the ad <span class="verdict v-review">review</span></li>
+        <li>No permit anywhere <span class="verdict v-fail">fail</span></li>
+        <li>Photo reused by another agent <span class="verdict v-review">review</span></li>
+        <li>Permit shown only as a QR code <span class="verdict v-pass">pass</span></li>
+      </ul>
+      <p>Each verdict is pinned by a test, so a change that breaks one fails CI.</p></div>
+  </div>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <div class="eyebrow">03 — How it works</div>
+  <h2>Readers turn a listing into evidence. Rules turn evidence into a verdict.</h2>
+  <p class="intro">Each input goes through the readers that fit it; the checks only see what the readers extracted; a small rule engine makes the call. Every number in the verdict can be traced back to the check that produced it.</p>
+  <div class="diagram" role="img" aria-label="Pipeline: listing link, saved page PDF or photos go to readers (Azure AI Document Intelligence, Azure AI Vision, QR decoder, photo extractor), then to checks (permit, listing ID, watermark with own-logo test, reused photo), then to the rule engine producing pass, review or fail.">
+  <svg viewBox="0 0 1080 420" xmlns="http://www.w3.org/2000/svg" font-family="Inter, system-ui, sans-serif">
+    <defs>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#62708A"/></marker>
+    </defs>
+    <g font-size="13" fill="#93A0B8" font-weight="600" letter-spacing="1.5">
+      <text x="20" y="28">INPUT</text><text x="250" y="28">READERS</text><text x="560" y="28">CHECKS</text><text x="880" y="28">VERDICT</text>
+    </g>
+    <g font-size="15" fill="#F3EEE4">
+      <rect x="20" y="50" width="190" height="64" rx="12" fill="#122036" stroke="#243553"/><text x="36" y="78" font-weight="700">Listing link</text><text x="36" y="99" fill="#93A0B8" font-size="13">Bayut / Property Finder</text>
+      <rect x="20" y="170" width="190" height="64" rx="12" fill="#122036" stroke="#243553"/><text x="36" y="198" font-weight="700">Saved page (PDF)</text><text x="36" y="219" fill="#93A0B8" font-size="13">Cmd+P → Save as PDF</text>
+      <rect x="20" y="290" width="190" height="64" rx="12" fill="#122036" stroke="#243553"/><text x="36" y="318" font-weight="700">Photos</text><text x="36" y="339" fill="#93A0B8" font-size="13">one or many</text>
+
+      <rect x="250" y="50" width="250" height="56" rx="12" fill="#122036" stroke="#D9B061"/><text x="266" y="75" font-weight="700">Document Intelligence</text><text x="266" y="94" fill="#93A0B8" font-size="13">page text · QR codes (Azure)</text>
+      <rect x="250" y="126" width="250" height="56" rx="12" fill="#122036" stroke="#D9B061"/><text x="266" y="151" font-weight="700">AI Vision Read</text><text x="266" y="170" fill="#93A0B8" font-size="13">text on photos &amp; logos (Azure)</text>
+      <rect x="250" y="202" width="250" height="56" rx="12" fill="#122036" stroke="#243553"/><text x="266" y="227" font-weight="700">QR decoder</text><text x="266" y="246" fill="#93A0B8" font-size="13">zxing-cpp · signed permit link</text>
+      <rect x="250" y="278" width="250" height="56" rx="12" fill="#122036" stroke="#243553"/><text x="266" y="303" font-weight="700">Photo extractor</text><text x="266" y="322" fill="#93A0B8" font-size="13">skips other listings' photos</text>
+      <rect x="250" y="354" width="250" height="52" rx="12" fill="#0E1829" stroke="#243553" stroke-dasharray="4 4"/><text x="266" y="385" fill="#93A0B8" font-size="13">link: listing ID only (no scraping)</text>
+
+      <rect x="560" y="50" width="260" height="64" rx="12" fill="#122036" stroke="#35C2B0"/><text x="576" y="78" font-weight="700">Permit</text><text x="576" y="99" fill="#93A0B8" font-size="13">QR or labelled number · matches ad</text>
+      <rect x="560" y="134" width="260" height="64" rx="12" fill="#122036" stroke="#35C2B0"/><text x="576" y="162" font-weight="700">Listing ID</text><text x="576" y="183" fill="#93A0B8" font-size="13">QR belongs to this ad?</text>
+      <rect x="560" y="218" width="260" height="64" rx="12" fill="#122036" stroke="#35C2B0"/><text x="576" y="246" font-weight="700">Watermark · YOLOv8n</text><text x="576" y="267" fill="#93A0B8" font-size="13">own agency's logo is allowed</text>
+      <rect x="560" y="302" width="260" height="64" rx="12" fill="#122036" stroke="#35C2B0"/><text x="576" y="330" font-weight="700">Reused photo</text><text x="576" y="351" fill="#93A0B8" font-size="13">perceptual hash across agents</text>
+
+      <rect x="880" y="150" width="180" height="120" rx="14" fill="#122036" stroke="#D9B061"/><text x="898" y="182" font-weight="700">Rule engine</text>
+      <text x="898" y="212" fill="#35C2B0" font-size="14" font-weight="700">PASS</text><text x="898" y="234" fill="#E8B04B" font-size="14" font-weight="700">REVIEW</text><text x="898" y="256" fill="#E37D6F" font-size="14" font-weight="700">FAIL</text>
+    </g>
+    <g stroke="#62708A" stroke-width="1.6" fill="none" marker-end="url(#ar)">
+      <path d="M210 82 C230 82 230 380 248 380"/>
+      <path d="M210 202 C230 202 230 78 248 78"/><path d="M210 202 C225 202 225 230 248 230"/><path d="M210 202 C230 202 230 306 248 306"/>
+      <path d="M210 322 C230 322 230 154 248 154"/><path d="M210 322 C225 322 225 230 248 230"/>
+      <path d="M500 78 L558 82"/><path d="M500 154 C530 154 530 82 558 82"/><path d="M500 230 C530 230 530 166 558 166"/>
+      <path d="M500 380 C535 380 535 166 558 166"/><path d="M500 306 C530 306 530 250 558 250"/><path d="M500 306 C530 306 530 334 558 334"/><path d="M500 154 C540 154 540 250 558 250"/>
+      <path d="M820 82 C850 82 850 190 878 190"/><path d="M820 166 C850 166 850 205 878 205"/><path d="M820 250 C850 250 850 225 878 225"/><path d="M820 334 C850 334 850 240 878 240"/>
+    </g>
+  </svg>
+  </div>
+</div></section>
+
+<section id="real"><div class="wrap">
+  <div class="eyebrow">04 — Tested on a real listing</div>
+  <h2>From 21 false flags to the right answer</h2>
+  <p class="intro">Synthetic samples prove the pipeline runs. A real Bayut villa listing showed where it was wrong, and each fix below came from that one ad.</p>
+  <div class="steps">
+    <div class="step"><h3>Screenshots <span class="verdict v-review">review</span></h3><p>The permit wasn't printed anywhere: the ad carries only a signed DLD QR code. OCR "found" two permits that were really listing IDs in the browser's address bar, and the detector flagged <span class="num">21</span> page elements as watermarks.</p></div>
+    <div class="step"><h3>Read the QR, require a permit label <span class="verdict v-review">review</span></h3><p>The QR decodes to a validation link with the listing ID and an ECDSA signature, so the QR now counts as the permit. A number only counts as a permit when a Permit / Trakheesi label sits next to it.</p></div>
+    <div class="step"><h3>Save the page as PDF instead <span class="verdict v-review">review</span></h3><p>The portal answers automated requests with HTTP 401, and Mutabiq doesn't try to get around that. The user saves the page; Document Intelligence reads the agency, BRN and RERA, and only real photos are checked. The page also prints other agencies' listings under "Recommended for you"; photos after that heading are left out. False flags: <span class="num">21 → 1</span>.</p></div>
+    <div class="step done"><h3>Own logo vs another broker's <span class="verdict v-pass">pass</span></h3><p>The last flag was the agency's own gold logo, which is allowed. Azure AI Vision reads the mark, and a fuzzy match against the distinctive word of the registered agency name clears it. Another broker's mark would still be flagged. False flags: <span class="num">1 → 0</span>.</p></div>
+  </div>
+</div></section>
+
+<section id="azure"><div class="wrap">
+  <div class="eyebrow">05 — On Azure</div>
+  <h2>Two Azure AI services, one small container</h2>
+  <div class="three">
+    <div class="box"><div class="tag">Document Intelligence</div><h3>The saved page</h3><p>prebuilt-layout with the barcode add-on reads the page text and the permit QR in one call, with the PDF's own text layer as a cross-check for two-column boxes.</p></div>
+    <div class="box"><div class="tag">AI Vision</div><h3>Photos and logos</h3><p>Read OCR finds printed permit numbers in about 0.3 s per listing and reads stylised logos that local OCR can't.</p></div>
+    <div class="box"><div class="tag">Container Apps</div><h3>Scales to zero</h3><p>FastAPI + ONNX Runtime in UAE North. GitHub Actions tests every push and builds the image; the deploy waits for the exact commit's build.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="eyebrow">06 — Engineering decisions</div>
+  <h2>Choices that keep it correct</h2>
+  <div class="two">
+    <div class="box"><h3>Respect the portal's "no"</h3><p>One polite request, robots.txt checked, an honest User-Agent. When the portal blocks it, the link is still used to cross-check the listing ID and the page comes in as a PDF.</p></div>
+    <div class="box"><h3>Recall first, then explain</h3><p>The detector runs at a low threshold because a false alarm only means "review". The own-logo test and the "Recommended for you" cut-off remove false alarms with evidence, not by lowering sensitivity.</p></div>
+    <div class="box"><h3>It degrades, it doesn't break</h3><p>Azure down or out of quota → local Tesseract, zxing and pypdfium2 give an answer. An unreadable logo stays flagged, which is the safe default.</p></div>
+    <div class="box"><h3>Stable listing identity</h3><p>Checks are keyed by the portal listing ID, so re-checking the same ad is never reported as a reused photo, while the same photo under another ID is.</p></div>
+  </div>
+  <ul class="clean">
+    <li>Honest limits: the QR signature is only verified by following its link (DLD / the portal hold the key); the watermark model was trained on synthetic wordmarks and still misses some large stylised logos; tested on real listings, not yet at scale.</li>
+  </ul>
+</div></section>
+
+<section><div class="wrap">
+  <div class="eyebrow">07 — Stack</div>
+  <h2>Built end-to-end, deployed as code</h2>
+  <div class="chips">
+    <span class="chip">Python<i>FastAPI</i></span><span class="chip">YOLOv8n<i>ONNX Runtime</i></span><span class="chip">Azure AI Document Intelligence</span>
+    <span class="chip">Azure AI Vision<i>Read</i></span><span class="chip">zxing-cpp<i>QR</i></span><span class="chip">pypdfium2</span><span class="chip">Tesseract<i>fallback</i></span>
+    <span class="chip">imagehash<i>pHash</i></span><span class="chip">SQLite</span><span class="chip">Docker</span><span class="chip">Azure Container Apps</span>
+    <span class="chip">GitHub Actions<i>CI + GHCR</i></span><span class="chip">pytest<i>63 tests</i></span>
+  </div>
+</div></section>
+
+<footer><div class="wrap row">
+  <div><b style="color:var(--ink)">Athira Kizhake Kammilli</b> · AI / ML Engineer · Dubai · open to AI Engineer roles in the UAE<br><span style="color:var(--dim);font-size:14px">Independent portfolio project, not affiliated with the Dubai Land Department.</span></div>
+  <div><a href="https://github.com/athira31-ally/Mutabiq">GitHub</a> · <a href="https://athira31-ally.github.io/Baytak-AI/">Baytak AI</a> · <a href="https://www.linkedin.com/in/athira-kizhake-kammilli-150116198">LinkedIn</a></div>
+</div></footer>
+</body>
+</html>

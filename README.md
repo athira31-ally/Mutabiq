@@ -2,6 +2,8 @@
 
 *Mutabiq* is Arabic for **compliant**. An independent portfolio project, not affiliated with the Dubai Land Department.
 
+**[Case study →](https://athira31-ally.github.io/Mutabiq/)** · **[Live demo →](https://trakheesi-api.victoriousriver-467d20dd.uaenorth.azurecontainerapps.io)**
+
 **Status:** 🟢 **Live on Azure Container Apps** — [try the demo](https://trakheesi-api.victoriousriver-467d20dd.uaenorth.azurecontainerapps.io) (click a sample listing or upload your own; the first load after idle takes ~20 s while it scales up from zero).
 
 Before a Dubai property listing goes live, an agency or portal needs to know whether it will trip a **Trakheesi** (Dubai Land Department) or **Madhmoun** (Abu Dhabi) advertising violation — a missing or illegible permit number, a permit number that doesn't match the ad, an unauthorized broker watermark on the photos, or a duplicate/stock photo reused across listings. DLD fines for Trakheesi violations start at **AED 50,000**, with listing removal or licence suspension on repeat offences, and this maps to a real, funded product category — several UAE proptech vendors already sell "Trakheesi validation" as a paid add-on.
