@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .dup_hash import DuplicatePhotoIndex
 from .ocr_permit import OCRBackend, check_permit, check_permit_text, get_backend
+from .own_branding import check_detection
 from .qr_permit import PermitQR, read_permit_qrs
 from .rule_engine import ComplianceReport, evaluate
 from .watermark_detector import WatermarkDetector
@@ -22,6 +23,7 @@ class ListingBundle:
     page_text: str = ""                        # text of the listing page (fetched link or uploaded PDF)
     page_qrs: list[PermitQR] = field(default_factory=list)  # QR codes already decoded from that page
     link_listing_ref: str | None = None        # listing ID from the pasted Bayut / Property Finder link
+    agency_name: str | None = None             # registered agency (page's Regulatory Information box)
 
 
 class CompliancePipeline:
@@ -65,9 +67,17 @@ class CompliancePipeline:
         all_watermark_detections = []
         all_dup_matches = []
         permit_qrs = list(bundle.page_qrs)
+        own_branding = []
         for i, image_path in enumerate(bundle.image_paths):
             permit_qrs.extend(read_permit_qrs(image_path))  # the permit QR can be on any image
-            all_watermark_detections.extend(self.watermark_detector.detect(image_path))
+            for det in self.watermark_detector.detect(image_path):
+                # The listing agency's own logo is allowed; only other marks count as violations.
+                brand = check_detection(image_path, det, bundle.agency_name, self.ocr_backend) \
+                    if bundle.agency_name else None
+                if brand and brand.own:
+                    own_branding.append({"text": brand.text, "matched": brand.token, "similarity": brand.similarity})
+                else:
+                    all_watermark_detections.append(det)
             all_dup_matches.extend(
                 self.dup_index.find_matches(image_path, exclude_listing_id=bundle.listing_id)
             )
@@ -86,4 +96,5 @@ class CompliancePipeline:
             duplicate_matches=all_dup_matches,
             permit_qrs=permit_qrs,
             link_listing_ref=bundle.link_listing_ref,
+            own_branding=own_branding,
         )

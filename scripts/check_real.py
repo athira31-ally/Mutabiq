@@ -55,6 +55,7 @@ def _summary(report: dict) -> dict:
         "printed permit": ", ".join(p["found_numbers"]) or "-",
         "permit QR": qr_note,
         "watermarks": str(report["watermarks_detected"]),
+        "own logo": str(len(report.get("own_branding") or [])),
     }
 
 
@@ -92,10 +93,11 @@ def main() -> None:
                 qrs += page.qrs
                 reader = page.reader
             ref = re.search(r"(\d{6,})", name)
+            agency = regulatory_facts(text).get("agency") if text else None
             report = pipeline.check_listing(ListingBundle(
                 listing_id=f"REAL-{i}", agent_id=f"REAL-AGENT-{i}", image_paths=photos,
                 claimed_permit_number=args.claimed, page_text=text, page_qrs=qrs,
-                link_listing_ref=ref.group(1) if ref else None)).to_dict()
+                link_listing_ref=ref.group(1) if ref else None, agency_name=agency)).to_dict()
             if text:
                 facts = regulatory_facts(text)
                 report["agency"] = facts.get("agency", "-")

@@ -228,7 +228,8 @@ async def check_page(
         report = get_pipeline().check_listing(ListingBundle(
             listing_id=listing_key, agent_id=facts.get("agency", "web-visitor"), image_paths=photos,
             claimed_permit_number=(claimed_permit_number or "").strip() or None,
-            page_text=text, page_qrs=qrs, link_listing_ref=link.listing_ref if link else None))
+            page_text=text, page_qrs=qrs, link_listing_ref=link.listing_ref if link else None,
+            agency_name=facts.get("agency")))
 
     return {
         **report.to_dict(),

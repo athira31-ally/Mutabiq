@@ -35,6 +35,7 @@ class ComplianceReport:
     watermark_detections: list[Detection] = field(default_factory=list)
     duplicate_matches: list[DuplicateMatch] = field(default_factory=list)
     permit_qrs: list[PermitQR] = field(default_factory=list)
+    own_branding: list[dict] = field(default_factory=list)   # the listing agency's own logos (allowed)
 
     def to_dict(self) -> dict:
         return {
@@ -52,6 +53,7 @@ class ComplianceReport:
                 "qr_codes": [q.to_dict() for q in self.permit_qrs if q.is_permit],
             },
             "watermarks_detected": len(self.watermark_detections),
+            "own_branding": self.own_branding,
             "duplicate_matches": len(self.duplicate_matches),
         }
 
@@ -76,6 +78,7 @@ def evaluate(
     duplicate_matches: list[DuplicateMatch],
     permit_qrs: list[PermitQR] | None = None,
     link_listing_ref: str | None = None,
+    own_branding: list[dict] | None = None,
 ) -> ComplianceReport:
     """Rule table (see ARCHITECTURE.md §3.4):
 
@@ -85,7 +88,7 @@ def evaluate(
     - Permit found but malformed                      -> hard fail
     - Permit found + valid, but mismatches ad text     -> review
     - Permit QR belongs to a different listing than the pasted link -> review
-    - Watermark detected                               -> review
+    - Watermark detected (not the agency's own logo)   -> review
     - Duplicate photo matched to a different listing   -> review
     - All clean                                        -> pass
     """
@@ -170,4 +173,5 @@ def evaluate(
         watermark_detections=watermark_detections,
         duplicate_matches=duplicate_matches,
         permit_qrs=permit_qrs,
+        own_branding=own_branding or [],
     )

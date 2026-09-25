@@ -78,6 +78,7 @@ Combines the checks into one report:
 | No printed permit number and no Trakheesi permit QR code | Hard fail |
 | Permit QR only (portal style), no printed number | OK — if the QR link carries a permit number, it must match the ad (else Review) |
 | Permit QR belongs to a different listing than the pasted link | Review (`PERMIT_QR_OTHER_LISTING`) |
+| Watermark that reads as the listing's registered agency | Allowed — reported as own branding, not a violation |
 | Permit number present but malformed | Hard fail |
 | Permit number present, valid format, but mismatches ad text | Review |
 | Watermark detected | Review |

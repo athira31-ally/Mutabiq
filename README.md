@@ -41,6 +41,7 @@ listing bundle (images[], ad_text, claimed_permit_number, listing/agent id)
 | Permit QR code reader | `src/qr_permit.py` | Decodes the Trakheesi permit QR (zxing-cpp) and parses the validation link: listing ID, permit number, signature |
 | Check a listing from its link | `src/listing_link.py` | Reads the listing ID from a Bayut / Property Finder link; one polite fetch (robots.txt, honest User-Agent), falls back to PDF when the portal blocks it |
 | Listing page saved as PDF | `src/pdf_listing.py` | Azure AI Document Intelligence (text + QR codes) when configured, else local (pypdfium2 + Tesseract + zxing); extracts the photos and the Regulatory Information box |
+| Agency's own logo vs another broker's | `src/own_branding.py` | Reads each detected mark (Azure AI Vision; Tesseract best-effort) and fuzzy-matches the distinctive words of the registered agency — own logo allowed, any other mark flagged |
 | Azure AI services switch-on | `scripts/enable_azure_ai.sh` | Creates Document Intelligence + AI Vision (free tier) and wires them into the Container App as secrets |
 | Real base-photo fetcher (Pexels API) | `src/fetch_stock_photos.py` | Downloads free-licensed property/interior photos to use as training backgrounds — see "Training data" below |
 | Synthetic watermark-overlay generator | `src/synthetic_watermark_data.py` | Composites a synthetic brokerage wordmark onto a base photo, in YOLO label format; base photo can be procedural or a real downloaded one |
@@ -53,7 +54,7 @@ listing bundle (images[], ad_text, claimed_permit_number, listing/agent id)
 | FastAPI service + web demo | `src/api.py`, `demo/` | `/` demo page, `/check-listing`, `/check-sample/{id}`, `/health` |
 | Dockerfile + Azure Container Apps deploy script | `Dockerfile`, `scripts/azure_deploy.sh` | Serve-only image (no training deps) — see [`DEPLOY_AZURE.md`](DEPLOY_AZURE.md) |
 
-**53 tests** across 9 modules (`tests/`) — run with `pytest -v`.
+**63 tests** across 10 modules (`tests/`) — run with `pytest -v`.
 
 ## Live demo
 
@@ -85,7 +86,7 @@ Putting the model in front of new images surfaced three real issues, now fixed o
 
 On the real Bayut listing saved as PDF, the checker now reads the agency (SEROVIA PROPERTIES L.L.C), RERA / BRN and the signed permit QR for listing 15605505, and checks only this listing's photos: the PDF also prints *other* agencies' listings under "Recommended for you", whose logos were being counted as watermarks on this ad — photos after that heading are now left out (false watermark hits: 21 on screenshots → 1).
 
-Still open from the real-listing test: the listing's photos carry the agency's **own** logo, which is allowed — the real violation is *another* broker's mark. The next rule compares the detected watermark's text with the listing's registered agency, and the model is retrained on large stylised logos.
+The listing's photos also carry the agency's **own** logo, which is allowed — the real violation is *another* broker's mark. `src/own_branding.py` reads each detected mark and compares it with the distinctive part of the registered agency name ("SEROVIA", not "PROPERTIES"); a match is reported as the agency's own branding instead of a violation. Stylised logos are hard for Tesseract (it read "ROVIA" from the gold SEROVIA mark in only 2 of 144 settings), so this check relies on Azure AI Vision; an unreadable mark stays flagged for review. Still open: retraining the detector on large stylised logos.
 
 The detector's recall-first threshold (0.10) is unchanged by design: a false alarm only means "review". The only 5 clean images in the 40-image validation set include 2 false positives, so a larger negative set is also on the list.
 

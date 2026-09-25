@@ -144,6 +144,7 @@ function render(r, img) {
       <dt>Permit QR code</dt><dd>${qr}</dd>
       <dt>Matches the ad</dt><dd>${r.permit.source === "none" ? "—" : (r.violations.some(v => v.code === "PERMIT_MISMATCH") ? "no" : "yes")}</dd>
       <dt>Watermarks detected</dt><dd>${r.watermarks_detected}</dd>
+      ${(r.own_branding || []).length ? `<dt>Agency's own logo</dt><dd>${r.own_branding.length} · allowed (reads "${esc(r.own_branding[0].text)}")</dd>` : ""}
       <dt>Reused-photo matches</dt><dd>${r.duplicate_matches}</dd>
       ${r.latency_ms ? `<dt>Time</dt><dd>${r.latency_ms} ms</dd>` : ""}
     </dl>
