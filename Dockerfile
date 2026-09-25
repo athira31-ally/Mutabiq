@@ -1,4 +1,4 @@
-# Production image for the Trakheesi Compliance Detector API.
+# Production image for the Mutabiq API (Trakheesi compliance checker).
 #
 # Build (locally, optional — `az containerapp up --source .` in azure_deploy.sh
 # builds this in the cloud via ACR Tasks, so you don't need Docker installed

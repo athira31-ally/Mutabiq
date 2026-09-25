@@ -25,7 +25,7 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
-USER_AGENT = "TrakheesiComplianceDemo/1.0 (+https://github.com/athira31-ally/Trakheesi)"
+USER_AGENT = "MutabiqComplianceDemo/1.0 (+https://github.com/athira31-ally/Mutabiq)"
 TIMEOUT = 10
 MAX_PAGE_BYTES = 5 * 1024 * 1024
 MAX_IMAGE_BYTES = 8 * 1024 * 1024

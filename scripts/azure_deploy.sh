@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploys the Trakheesi Compliance Detector API to Azure Container Apps,
+# Deploys the Mutabiq API to Azure Container Apps,
 # wired up to a real Azure AI Vision resource for OCR.
 #
 # Read DEPLOY_AZURE.md first — this script is the "just run it" version of
@@ -29,7 +29,7 @@ ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-trakheesi-env}"
 APP_NAME="${APP_NAME:-trakheesi-api}"
 
 echo "=================================================================="
-echo " Trakheesi Compliance Detector — Azure deploy"
+echo " Mutabiq — Azure deploy"
 echo "   Resource group : $RESOURCE_GROUP"
 echo "   Location       : $LOCATION"
 echo "   Vision resource: $VISION_NAME"

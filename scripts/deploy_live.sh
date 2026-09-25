@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Put the Trakheesi Compliance Detector live on Azure Container Apps, using the image GitHub Actions
+# Put Mutabiq live on Azure Container Apps, using the image GitHub Actions
 # builds (ghcr.io) - no ACR / ACR Tasks needed. Safe to re-run: creates the app once, then just updates it.
 #
 #   bash scripts/deploy_live.sh

@@ -1,4 +1,4 @@
-# Deploying the Compliance Detector to Azure — step by step
+# Deploying Mutabiq to Azure — step by step
 
 ## Prerequisites
 

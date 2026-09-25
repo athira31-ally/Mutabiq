@@ -1,4 +1,4 @@
-# Trakheesi Compliance Detector
+# Mutabiq (مطابق) · Trakheesi compliance checker
 
 FastAPI service that checks real-estate listing images + ad text against
 Dubai's Trakheesi (Abu Dhabi: Madhmoun) advertising rules — permit-number

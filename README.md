@@ -1,4 +1,6 @@
-# 01 · Listing Image & Trakheesi Compliance Detector
+# Mutabiq (مطابق) · Trakheesi compliance checker for Dubai property listings
+
+*Mutabiq* is Arabic for **compliant**. An independent portfolio project, not affiliated with the Dubai Land Department.
 
 **Status:** 🟢 **Live on Azure Container Apps** — [try the demo](https://trakheesi-api.victoriousriver-467d20dd.uaenorth.azurecontainerapps.io) (click a sample listing or upload your own; the first load after idle takes ~20 s while it scales up from zero).
 

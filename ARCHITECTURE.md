@@ -1,4 +1,4 @@
-# Architecture — Listing Image & Trakheesi Compliance Detector
+# Architecture — Mutabiq, Trakheesi compliance checker for listing images
 
 ## 1. Problem statement
 

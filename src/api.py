@@ -37,7 +37,7 @@ MAX_UPLOAD_BYTES = 8 * 1024 * 1024            # per image, keeps the public demo
 MAX_PDF_BYTES = 20 * 1024 * 1024
 
 app = FastAPI(
-    title="Trakheesi Compliance Detector",
+    title="Mutabiq · Trakheesi compliance checker",
     description="Flags Trakheesi/Madhmoun advertising violations in a listing before it's published.",
     version="0.1.0",
 )

@@ -44,7 +44,7 @@ def client():
 
 
 def test_demo_page_and_samples_are_served(client):
-    assert "Trakheesi Compliance Detector" in client.get("/").text
+    assert "Mutabiq" in client.get("/").text
     assert len(client.get("/samples/samples.json").json()) == 6
     assert client.get("/samples/a_compliant.jpg").status_code == 200
 
